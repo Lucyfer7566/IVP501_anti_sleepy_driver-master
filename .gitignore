@@ -1,0 +1,51 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.manifest
+*.spec
+
+# ===== Virtual Environment =====
+venv/
+env/
+.venv/
+ENV/
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# ===== Runtime Data =====
+data/owner_profile.json
+
+# ===== Testing =====
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# ===== Logs =====
+*.log
+
+# ===== Distribution =====
+*.tar.gz
+*.zip
