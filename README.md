@@ -386,12 +386,20 @@ Sử dụng **2 phương pháp kết hợp** để nhận dạng chủ xe:
 | `average_signatures(sigs)` | Trung bình nhiều signature → 1 vector chuẩn (dùng khi đăng ký) |
 | `compare_signatures(sig1, sig2)` | So sánh L2 distance → similarity = 1/(1+distance), range [0, 1] |
 
+- Cách hoạt động: MediaPipe FaceMesh trả về 468 điểm đặc trưng trên khuôn mặt. Hệ thống chọn 15 cặp điểm ổn định (trán, cằm, gò má, sống mũi, khóe miệng) rồi tính khoảng cách giữa từng cặp, chuẩn hóa theo chiều rộng khuôn mặt → tạo thành vector 15 số thực.
+- Ưu điểm: Nhanh, nhẹ, không cần model AI riêng.
+- Nhược điểm: Rất nhạy với góc xoay đầu — khi nghiêng đầu, tọa độ 2D của các điểm thay đổi mạnh → khoảng cách bị sai lệch.
+
 #### Phương pháp 2: Spatial Histogram (512D)
 | Hàm | Mô tả |
 |---|---|
 | `extract_face_crop(frame, bbox)` | Cắt vùng mặt → resize 128×128 → grayscale → histogram equalize |
 | `compute_face_histogram(crop)` | Chia ảnh thành lưới 4×4, mỗi ô tính histogram 32 bin → vector 512D |
 | `compare_face_histograms(h1, h2)` | So sánh bằng `cv2.compareHist` (HISTCMP_CORREL), range [-1, 1] |
+
+- Cách hoạt động: Cắt vùng mặt từ khung hình ra, resize về 128×128 pixel, chuyển sang grayscale, cân bằng sáng. Sau đó chia ảnh mặt thành lưới 4×4 = 16 ô, mỗi ô tính histogram 32 bin → tạo vector 512 giá trị mô tả phân bố sáng/tối trên từng vùng khuôn mặt.
+- Ưu điểm: Bền vững hơn nhiều khi xoay đầu vì nó ghi nhớ cấu trúc sáng tối tổng thể thay vì vị trí điểm cụ thể.
+- Nhược điểm: Nhạy với thay đổi ánh sáng mạnh (ban ngày/đêm).
 
 #### Hàm kết hợp
 | Hàm | Mô tả |
@@ -406,6 +414,7 @@ Sử dụng **2 phương pháp kết hợp** để nhận dạng chủ xe:
 | 15°–30° (hơi nghiêng) | 30% | 70% | 0.50 |
 | > 30° (quay mạnh) | 10% | 90% | 0.45 |
 
+**Kết quả mỗi frame (khớp/không khớp) được đẩy vào bộ đệm 25 frames. Chỉ khi >55% frames nói "khớp" mới kết luận CHỦ XE, <30% mới kết luận NGƯỜI LẠ.**
 ---
 
 ### `core/audio.py` — Phát âm thanh
