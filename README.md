@@ -414,7 +414,7 @@ Sử dụng **2 phương pháp kết hợp** để nhận dạng chủ xe:
 | 15°–30° (hơi nghiêng) | 30% | 70% | 0.50 |
 | > 30° (quay mạnh) | 10% | 90% | 0.45 |
 
-*Kết quả mỗi frame (khớp/không khớp) được đẩy vào bộ đệm 25 frames. Chỉ khi >55% frames nói "khớp" mới kết luận CHỦ XE, <30% mới kết luận NGƯỜI LẠ.*
+Kết quả mỗi frame (khớp/không khớp) được đẩy vào bộ đệm 25 frames. Chỉ khi >55% frames nói "khớp" mới kết luận CHỦ XE, <30% mới kết luận NGƯỜI LẠ.
 ---
 
 ### `core/audio.py` — Phát âm thanh
