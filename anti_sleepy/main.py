@@ -64,16 +64,6 @@ def main() -> None:
 
     detector = DrowsinessDetector(config)
     
-    from anti_sleepy.core.profile import profile_exists, load_profile
-
-    if profile_exists():
-        profile = load_profile()
-        if profile:
-            detector.load_owner_profile(profile)
-            print("Đã tải profile chủ xe")
-    else:
-        print("Chưa có profile. Vui lòng đăng ký khuôn mặt trong ứng dụng.")
-
     print("\n=== KHOI DONG HE THONG GIAO DIEN ===")
     
     import tkinter as tk

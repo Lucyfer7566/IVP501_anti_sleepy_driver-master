@@ -11,12 +11,15 @@ build/
 eggs/
 *.manifest
 *.spec
+pip-log.txt
+pip-delete-this-directory.txt
 
 # ===== Virtual Environment =====
 venv/
 env/
 .venv/
 ENV/
+.env
 
 # ===== IDE =====
 .idea/
@@ -27,21 +30,30 @@ ENV/
 .project
 .classpath
 .settings/
+*.sublime-project
+*.sublime-workspace
 
 # ===== OS =====
 .DS_Store
 Thumbs.db
 Desktop.ini
 ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
 
-# ===== Runtime Data =====
+# ===== Runtime / Session Data =====
 data/owner_profile.json
+data/*.json
 
 # ===== Testing =====
 .pytest_cache/
 .coverage
 htmlcov/
 *.cover
+.tox/
+.nox/
 
 # ===== Logs =====
 *.log
@@ -49,3 +61,4 @@ htmlcov/
 # ===== Distribution =====
 *.tar.gz
 *.zip
+*.whl

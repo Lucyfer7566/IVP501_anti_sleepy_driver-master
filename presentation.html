@@ -1,0 +1,2796 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anti-Sleepy Driver — IVP501</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+        font-family: "Be Vietnam Pro", sans-serif;
+        background: #f5f5f7;
+        color: #1d1d1f;
+      }
+      :root {
+        --white: #fff;
+        --bg: #f5f5f7;
+        --card: #fff;
+        --text: #1d1d1f;
+        --text2: #6e6e73;
+        --text3: #aeaeb2;
+        --blue: #0071e3;
+        --blue-bg: #e8f2ff;
+        --red: #ff3b30;
+        --red-bg: #fff2f1;
+        --green: #34c759;
+        --green-bg: #ecfdf0;
+        --orange: #ff9500;
+        --orange-bg: #fff8ec;
+        --purple: #af52de;
+        --purple-bg: #f6ecfe;
+        --teal: #5ac8fa;
+        --border: #d2d2d7;
+        --border-light: #e8e8ed;
+        --shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+        --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+        --R: 14px;
+        --Rs: 8px;
+      }
+
+      .deck {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+      .slide {
+        position: absolute;
+        inset: 0;
+        padding: 20px 32px 54px;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          opacity 0.4s ease,
+          transform 0.4s ease;
+        transform: translateX(60px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+      }
+      .slide.active {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(0);
+        z-index: 2;
+      }
+
+      /* NAVBAR */
+      .navbar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 8px 28px;
+        height: 50px;
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid var(--border-light);
+      }
+      .nav-btn {
+        padding: 7px 20px;
+        border-radius: 7px;
+        border: none;
+        background: var(--blue);
+        color: #fff;
+        font-family: "Be Vietnam Pro";
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 80px;
+      }
+      .nav-btn:hover {
+        filter: brightness(1.1);
+      }
+      .nav-btn:disabled {
+        background: var(--border);
+        color: var(--text3);
+        cursor: default;
+      }
+      .nav-btn.outline {
+        background: transparent;
+        color: var(--blue);
+        border: 1.5px solid var(--blue);
+      }
+      .nav-btn.outline:hover {
+        background: var(--blue-bg);
+      }
+      .nav-btn.outline:disabled {
+        border-color: var(--border);
+        color: var(--text3);
+        background: transparent;
+      }
+      .progress {
+        flex: 1;
+        height: 3px;
+        background: var(--border-light);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: var(--blue);
+        border-radius: 2px;
+        transition: width 0.4s ease;
+      }
+      .slide-num {
+        font-size: 0.8rem;
+        color: var(--text2);
+        font-weight: 600;
+        min-width: 48px;
+        text-align: center;
+      }
+
+      /* TYPOGRAPHY */
+      .slide-tag {
+        display: inline-block;
+        padding: 5px 16px;
+        border-radius: 20px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .tag-blue {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .tag-red {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+      .tag-green {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .tag-orange {
+        background: var(--orange-bg);
+        color: var(--orange);
+      }
+      .tag-purple {
+        background: var(--purple-bg);
+        color: var(--purple);
+      }
+      .tag-lg {
+        font-size: 1.1rem;
+        padding: 6px 20px;
+      }
+      .slide-title {
+        font-size: 2.6rem;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1.12;
+        margin-bottom: 4px;
+        letter-spacing: -0.02em;
+      }
+      .slide-desc {
+        font-size: 1.25rem;
+        color: var(--text2);
+        line-height: 1.5;
+        margin-bottom: 8px;
+      }
+      h3 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--R);
+        padding: 22px;
+        box-shadow: var(--shadow);
+        transition: box-shadow 0.25s;
+      }
+      .card:hover {
+        box-shadow: var(--shadow-lg);
+      }
+
+      /* TABLE */
+      table.t {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 1.15rem;
+      }
+      table.t th {
+        text-align: left;
+        padding: 14px 16px;
+        background: var(--bg);
+        font-weight: 700;
+        border-bottom: 2px solid var(--border);
+      }
+      table.t td {
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--border-light);
+        vertical-align: top;
+      }
+      table.t tr:hover td {
+        background: var(--blue-bg);
+      }
+      .win {
+        color: var(--blue);
+        font-weight: 700;
+      }
+
+      /* COVER */
+      .cover {
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        background: linear-gradient(
+          150deg,
+          #f5f5f7 0%,
+          #e8f2ff 40%,
+          #ecfdf0 100%
+        );
+      }
+      .cover-title {
+        font-size: 4rem;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+      }
+      .cover-title .hl {
+        background: linear-gradient(135deg, var(--blue), var(--teal));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .cover-sub {
+        font-size: 1.4rem;
+        color: var(--text2);
+        margin-top: 14px;
+        font-weight: 500;
+      }
+      .cover-meta {
+        margin-top: 32px;
+        font-size: 1.2rem;
+        color: var(--text2);
+        line-height: 1.8;
+      }
+      .cover-meta strong {
+        color: var(--blue);
+        font-weight: 700;
+      }
+      .team-row {
+        display: flex;
+        gap: 18px;
+        justify-content: center;
+        margin-top: 24px;
+      }
+      .team-chip {
+        background: var(--card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--Rs);
+        padding: 16px 36px;
+        font-weight: 600;
+        font-size: 1.2rem;
+        box-shadow: var(--shadow);
+        opacity: 0;
+        transform: translateY(16px);
+        transition: all 0.5s ease;
+      }
+      .team-chip.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .cursor-blink {
+        display: inline-block;
+        width: 3px;
+        height: 4rem;
+        background: var(--blue);
+        animation: blink 0.7s infinite;
+        vertical-align: middle;
+        margin-left: 2px;
+        border-radius: 2px;
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+
+      /* STATS */
+      .stats-row {
+        display: flex;
+        gap: 16px;
+        flex: 1;
+      }
+      .stat-card {
+        flex: 1;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 28px 16px;
+      }
+      .stat-num {
+        font-size: 5rem;
+        font-weight: 800;
+        line-height: 1;
+      }
+      .stat-label {
+        font-size: 1.25rem;
+        color: var(--text2);
+        margin-top: 10px;
+        font-weight: 500;
+        line-height: 1.4;
+      }
+      .stat-red .stat-num {
+        color: var(--red);
+      }
+      .stat-orange .stat-num {
+        color: var(--orange);
+      }
+      .stat-blue .stat-num {
+        color: var(--blue);
+      }
+      .compare-row {
+        display: flex;
+        gap: 16px;
+        flex: 1;
+      }
+      .compare-item {
+        flex: 1;
+        padding: 28px 20px;
+        text-align: center;
+        border-radius: var(--Rs);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+      .compare-item.bad {
+        background: var(--red-bg);
+        border: 1px solid #fecaca;
+      }
+      .compare-item.good {
+        background: var(--green-bg);
+        border: 1px solid #a7f3d0;
+      }
+      .compare-title {
+        font-weight: 700;
+        font-size: 1.35rem;
+        margin-bottom: 6px;
+      }
+      .compare-desc {
+        font-size: 1.15rem;
+        color: var(--text2);
+        line-height: 1.5;
+      }
+
+      /* SOLUTIONS */
+      .sol-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        flex: 1;
+      }
+      .sol-card {
+        cursor: pointer;
+        position: relative;
+      }
+      .sol-card .sol-name {
+        font-weight: 700;
+        font-size: 1.35rem;
+        margin-bottom: 8px;
+      }
+      .sol-card .sol-short {
+        font-size: 1.15rem;
+        color: var(--text2);
+        line-height: 1.6;
+      }
+      .sol-card .sol-long {
+        max-height: 0;
+        overflow: hidden;
+        transition:
+          max-height 0.5s ease,
+          margin 0.3s;
+        font-size: 1.1rem;
+        color: var(--text);
+        line-height: 1.75;
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0 solid var(--border-light);
+      }
+      .sol-card.open .sol-long {
+        max-height: 500px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top-width: 1px;
+      }
+      .sol-card .sol-long .sol-bullet {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 5px 0;
+      }
+      .sol-card .sol-long .sol-bullet::before {
+        content: "→";
+        color: var(--blue);
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .sol-card .expand-arrow {
+        position: absolute;
+        top: 22px;
+        right: 22px;
+        color: var(--text3);
+        transition: transform 0.3s;
+        font-size: 0.8rem;
+      }
+      .sol-card.open .expand-arrow {
+        transform: rotate(180deg);
+      }
+
+      /* ARCH */
+      .arch-cols {
+        display: flex;
+        gap: 14px;
+        flex: 1;
+      }
+      .arch-col {
+        flex: 1;
+        min-width: 180px;
+      }
+      .arch-col .card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .arch-module {
+        padding: 16px 20px;
+        margin: 6px 0;
+        border-radius: var(--Rs);
+        background: var(--bg);
+        cursor: pointer;
+        font-size: 1.18rem;
+        font-weight: 500;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+      }
+      .arch-module:hover {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .arch-module .adot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .arch-col.ui .adot {
+        background: var(--purple);
+      }
+      .arch-col.core .adot {
+        background: var(--green);
+      }
+      .arch-col.conf .adot {
+        background: var(--orange);
+      }
+      .arch-module .atip {
+        display: none;
+        position: absolute;
+        left: 105%;
+        top: 0;
+        z-index: 50;
+        background: var(--card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--Rs);
+        padding: 14px 18px;
+        width: 380px;
+        box-shadow: var(--shadow-lg);
+        font-size: 1.05rem;
+        line-height: 1.7;
+        color: var(--text);
+        font-weight: 400;
+        pointer-events: none;
+      }
+      .arch-module .atip strong {
+        color: var(--blue);
+      }
+      .arch-module .atip code {
+        background: var(--bg);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: "JetBrains Mono";
+        font-size: 0.92rem;
+      }
+      .arch-module:hover .atip {
+        display: block;
+      }
+      .arch-col.conf .arch-module .atip {
+        left: auto;
+        right: 105%;
+      }
+      .arch-module.dimmed {
+        opacity: 0.55;
+        font-style: italic;
+      }
+      .clean-arch-box {
+        background: var(--purple-bg);
+        border: 1px solid #d8b4fe;
+        border-radius: var(--Rs);
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        font-size: 1.1rem;
+        line-height: 1.7;
+      }
+      .clean-arch-box strong {
+        color: var(--purple);
+      }
+
+      /* MODAL */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.25);
+        z-index: 300;
+        justify-content: center;
+        align-items: center;
+      }
+      .modal-overlay.show {
+        display: flex;
+      }
+      .modal-box {
+        background: var(--card);
+        border-radius: var(--R);
+        padding: 32px;
+        max-width: 600px;
+        width: 92%;
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+      .modal-box h4 {
+        font-size: 1.3rem;
+        margin-bottom: 14px;
+        color: var(--blue);
+      }
+      .modal-box .modal-body {
+        font-size: 1.1rem;
+        line-height: 1.8;
+        color: var(--text);
+      }
+      .modal-box .modal-body code {
+        background: var(--bg);
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-family: "JetBrains Mono";
+        font-size: 0.95rem;
+      }
+      .modal-close {
+        position: absolute;
+        top: 14px;
+        right: 18px;
+        cursor: pointer;
+        font-size: 1.3rem;
+        color: var(--text3);
+        transition: color 0.2s;
+      }
+      .modal-close:hover {
+        color: var(--text);
+      }
+
+      /* FORMULA */
+      .formula-block {
+        background: var(--card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--R);
+        padding: 18px 24px;
+        margin: 8px 0;
+        box-shadow: var(--shadow);
+      }
+      .formula-block .katex {
+        font-size: 1.5rem !important;
+      }
+      .formula-block .f-center {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .formula-block .f-vars {
+        font-size: 1.1rem;
+        color: var(--text2);
+        line-height: 1.8;
+        border-top: 1px solid var(--border-light);
+        padding-top: 10px;
+      }
+      .formula-block .f-vars strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      /* SIM */
+      .sim-row {
+        display: flex;
+        gap: 24px;
+        flex: 1;
+      }
+      .sim-half {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .sim-box {
+        text-align: center;
+        padding: 16px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+      .sim-canvas {
+        display: block;
+        margin: 0 auto 8px;
+      }
+      .sim-slider {
+        width: 100%;
+        accent-color: var(--blue);
+        cursor: pointer;
+        height: 6px;
+      }
+      .sim-label {
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 4px;
+        display: block;
+        text-align: left;
+        width: 100%;
+      }
+      .sim-badge {
+        display: inline-block;
+        padding: 8px 22px;
+        border-radius: var(--Rs);
+        font-weight: 700;
+        font-size: 1.4rem;
+        margin-top: 6px;
+        transition: all 0.3s;
+        font-family: "JetBrains Mono";
+      }
+      .sim-badge.ok {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .sim-badge.danger {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+      .sim-state {
+        font-weight: 700;
+        font-size: 1.15rem;
+        margin-top: 4px;
+        transition: color 0.3s;
+      }
+
+      /* WAVE */
+      .wave-wrap {
+        padding: 16px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .wave-canvas {
+        width: 100%;
+        flex: 1;
+        display: block;
+        border-radius: var(--Rs);
+        min-height: 200px;
+      }
+      .wave-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .wave-btn {
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        font-family: "Be Vietnam Pro";
+        transition: all 0.2s;
+      }
+      .wave-btn:hover,
+      .wave-btn.on {
+        background: var(--blue);
+        color: #fff;
+        border-color: var(--blue);
+      }
+      .wave-legend {
+        display: flex;
+        gap: 14px;
+        font-size: 0.88rem;
+        color: var(--text2);
+        margin-top: 6px;
+      }
+      .wave-legend span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .wave-legend .ldot {
+        width: 10px;
+        height: 4px;
+        border-radius: 2px;
+      }
+
+      /* RISK INFO BOX */
+      .risk-info {
+        background: var(--card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--Rs);
+        padding: 22px 26px;
+        font-size: 1.15rem;
+        line-height: 1.85;
+      }
+      .risk-info .ri-section {
+        margin-bottom: 12px;
+      }
+      .risk-info .ri-section:last-child {
+        margin-bottom: 0;
+      }
+      .ri-icon {
+        font-size: 1.3rem;
+        margin-right: 6px;
+      }
+
+      /* CALIBRATION TABLE */
+      .cal-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 1.2rem;
+        margin-top: 10px;
+      }
+      .cal-table th {
+        text-align: left;
+        padding: 16px 18px;
+        background: var(--bg);
+        font-weight: 700;
+        border-bottom: 2px solid var(--border);
+      }
+      .cal-table td {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border-light);
+      }
+      .cal-table tr:hover td {
+        background: var(--blue-bg);
+      }
+
+      /* UI MOCK */
+      .ui-mock {
+        border: 2px solid var(--border);
+        border-radius: var(--R);
+        overflow: hidden;
+        background: var(--card);
+        box-shadow: var(--shadow-lg);
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .mock-top {
+        background: var(--bg);
+        padding: 32px;
+        text-align: center;
+        color: var(--text2);
+        font-size: 1.1rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border-bottom: 1px solid var(--border-light);
+      }
+      .mock-mid {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-light);
+        flex-wrap: wrap;
+        font-size: 1rem;
+      }
+      .mock-led {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--green);
+      }
+      .mock-tag {
+        padding: 3px 10px;
+        border-radius: 4px;
+        background: var(--bg);
+        border: 1px solid var(--border-light);
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+      .mock-bottom {
+        padding: 12px 16px;
+        font-family: "JetBrains Mono";
+        font-size: 0.9rem;
+        line-height: 2;
+        color: var(--text2);
+      }
+      .log-g {
+        color: var(--green);
+      }
+      .log-r {
+        color: var(--red);
+      }
+      .log-b {
+        color: var(--blue);
+      }
+
+      /* RISK SIM */
+      .risk-sim-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .risk-canvas {
+        width: 100%;
+        flex: 1;
+        display: block;
+        border-radius: var(--Rs);
+        min-height: 280px;
+        background: var(--card);
+        border: 1px solid var(--border-light);
+      }
+      .risk-btns {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .risk-btn {
+        padding: 10px 22px;
+        border-radius: 8px;
+        border: 2px solid;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        font-family: "Be Vietnam Pro";
+        transition: all 0.2s;
+      }
+      .risk-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+      }
+      .risk-btn.b-blink {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #2563eb;
+      }
+      .risk-btn.b-yawn {
+        background: #fffbeb;
+        border-color: #fcd34d;
+        color: #d97706;
+      }
+      .risk-btn.b-nod {
+        background: #fff7ed;
+        border-color: #fdba74;
+        color: #ea580c;
+      }
+      .risk-btn.b-micro {
+        background: #fef2f2;
+        border-color: #fca5a5;
+        color: #dc2626;
+      }
+      .risk-btn.b-reset {
+        background: #f0fdf4;
+        border-color: #86efac;
+        color: #16a34a;
+      }
+      .risk-status {
+        text-align: center;
+        margin-top: 10px;
+        font-family: "JetBrains Mono";
+        font-size: 1.3rem;
+        font-weight: 700;
+      }
+
+      /* PIPELINE */
+      .pipe-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 14px 0;
+      }
+      .pipe-step {
+        flex: 1;
+        text-align: center;
+        padding: 26px 12px;
+        background: var(--card);
+        border: 2px solid var(--border-light);
+        border-radius: var(--Rs);
+        cursor: pointer;
+        transition: all 0.25s;
+      }
+      .pipe-step:hover,
+      .pipe-step.on {
+        border-color: var(--blue);
+        background: var(--blue-bg);
+      }
+      .pipe-num {
+        font-family: "JetBrains Mono";
+        font-size: 1.1rem;
+        color: var(--text3);
+      }
+      .pipe-name {
+        font-weight: 700;
+        font-size: 1.3rem;
+        margin-top: 6px;
+      }
+      .pipe-arrow {
+        color: var(--text3);
+        font-size: 1.6rem;
+        flex-shrink: 0;
+      }
+      .pipe-info {
+        margin-top: 16px;
+        padding: 32px;
+        background: var(--card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--Rs);
+        font-size: 1.4rem;
+        line-height: 2.1;
+        flex: 1;
+      }
+      .pipe-info code {
+        background: var(--bg);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-family: "JetBrains Mono";
+        font-size: 1.2rem;
+      }
+
+      /* RESULTS */
+      .res-grid {
+        display: flex;
+        gap: 32px;
+        flex: 1;
+      }
+      .res-half {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .res-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 22px;
+        border-radius: var(--Rs);
+        margin: 6px 0;
+        background: var(--card);
+        border: 1px solid var(--border-light);
+        font-size: 1.25rem;
+      }
+      .res-item .ri-label {
+        flex: 1;
+        font-weight: 500;
+      }
+      .res-item .ri-time {
+        font-family: "JetBrains Mono";
+        font-size: 1.15rem;
+        color: var(--text2);
+      }
+      .lim-item {
+        padding: 20px 22px;
+        border-radius: var(--Rs);
+        margin: 6px 0;
+        border: 1px solid var(--border-light);
+        cursor: pointer;
+        transition: all 0.2s;
+        background: var(--card);
+      }
+      .lim-item:hover {
+        background: var(--bg);
+      }
+      .lim-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        font-size: 1.25rem;
+      }
+      .lim-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s;
+        font-size: 1.15rem;
+        color: var(--text2);
+        line-height: 1.75;
+      }
+      .lim-item.open .lim-body {
+        max-height: 160px;
+        margin-top: 14px;
+      }
+      .lim-arrow {
+        margin-left: auto;
+        transition: transform 0.4s;
+        font-size: 0.85rem;
+        color: var(--text3);
+      }
+      .lim-item.open .lim-arrow {
+        transform: rotate(180deg);
+      }
+
+      /* FINAL */
+      .final {
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+      }
+      .final-steps {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 18px 0;
+      }
+      .final-step {
+        padding: 12px 28px;
+        border-radius: var(--Rs);
+        font-weight: 600;
+        font-size: 1.15rem;
+      }
+      .refs {
+        text-align: left;
+        max-width: 800px;
+        margin: 14px auto 0;
+        font-size: 1.05rem;
+        line-height: 2.2;
+        color: var(--text2);
+        list-style: decimal;
+        padding-left: 20px;
+      }
+      .refs li {
+        margin: 2px 0;
+      }
+      .thanks {
+        font-size: 2.6rem;
+        font-weight: 800;
+        margin-top: 28px;
+        background: linear-gradient(135deg, var(--blue), var(--teal));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      /* LAYOUT */
+      .split {
+        display: flex;
+        gap: 24px;
+        flex: 1;
+      }
+      .split > div {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .two-col {
+        display: flex;
+        gap: 20px;
+        flex: 1;
+      }
+      .two-col > div {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .info-box {
+        background: var(--bg);
+        border: 1px solid var(--border-light);
+        border-radius: var(--Rs);
+        padding: 18px 22px;
+        margin: 8px 0;
+        font-size: 1.15rem;
+        line-height: 1.7;
+      }
+
+      @media (max-width: 768px) {
+        .slide {
+          padding: 16px 16px 58px;
+        }
+        .slide-title {
+          font-size: 1.8rem;
+        }
+        .cover-title {
+          font-size: 2.2rem;
+        }
+        .sol-grid,
+        .stats-row,
+        .compare-row,
+        .sim-row,
+        .res-grid,
+        .split,
+        .two-col,
+        .arch-cols {
+          flex-direction: column;
+        }
+        .sol-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="deck" id="deck">
+      <!-- SLIDE 1: COVER -->
+      <div class="slide cover active" data-idx="0" data-extra-class="cover">
+        <div class="cover-title">
+          <span id="typedText"></span
+          ><span class="cursor-blink" id="typeCursor"></span>
+        </div>
+        <div class="cover-sub">
+          Ứng dụng Xử lý ảnh thời gian thực với MediaPipe &amp; OpenCV
+        </div>
+        <div class="cover-meta">
+          IVP501 — Xử lý ảnh và Video<br />
+          GVHD: <strong>Cô Nguyễn Thị Bích Thủy</strong>
+        </div>
+        <div class="team-row">
+          <div class="team-chip" style="transition-delay: 0.5s">
+            Ngô Anh Đức
+          </div>
+          <div class="team-chip" style="transition-delay: 0.8s">
+            Trịnh Đức Dương
+          </div>
+          <div class="team-chip" style="transition-delay: 1.1s">
+            Đinh Đức Mạnh
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 2: VẤN ĐỀ -->
+      <div class="slide" data-idx="1">
+        <div class="slide-tag tag-red">VẤN ĐỀ</div>
+        <div class="slide-title">Tại sao cần hệ thống này?</div>
+        <div class="slide-desc">
+          Thực trạng tai nạn giao thông do buồn ngủ — toàn cầu và Việt Nam
+        </div>
+        <div class="stats-row">
+          <div class="stat-card card stat-red">
+            <div class="stat-num" data-target="1350000" data-suffix="">0</div>
+            <div class="stat-label">
+              Ca tử vong / năm do TNGT<br />toàn cầu (WHO)
+            </div>
+          </div>
+          <div class="stat-card card stat-orange">
+            <div class="stat-num" data-target="25" data-suffix="%">0</div>
+            <div class="stat-label">Tai nạn liên quan<br />tài xế buồn ngủ</div>
+          </div>
+          <div class="stat-card card stat-blue">
+            <div class="stat-num" data-target="11000" data-suffix="">0</div>
+            <div class="stat-label">Vụ TNGT / năm<br />tại Việt Nam</div>
+          </div>
+        </div>
+        <h3>So sánh các giải pháp hiện tại</h3>
+        <div class="compare-row">
+          <div class="compare-item bad">
+            <div class="compare-title">Cảm biến vô-lăng</div>
+            <div class="compare-desc">
+              Chỉ phát hiện khi xe đã lệch làn — quá muộn
+            </div>
+          </div>
+          <div class="compare-item bad">
+            <div class="compare-title">Vòng tay nhịp tim</div>
+            <div class="compare-desc">
+              Không chính xác, bất tiện, dễ quên đeo
+            </div>
+          </div>
+          <div class="compare-item good">
+            <div class="compare-title">Camera + AI (✓)</div>
+            <div class="compare-desc">
+              Phát hiện SỚM từ biểu hiện khuôn mặt, không tiếp xúc
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 3: GIẢI PHÁP -->
+      <div class="slide" data-idx="2">
+        <div class="slide-tag tag-green">GIẢI PHÁP</div>
+        <div class="slide-title">Giải pháp của chúng tôi</div>
+        <div class="slide-desc">
+          4 module cốt lõi — Click vào từng thẻ để xem chi tiết
+        </div>
+        <div class="sol-grid">
+          <div class="card sol-card" onclick="this.classList.toggle('open')">
+            <span class="expand-arrow">▼</span>
+            <div class="sol-name">
+              1. Máy trạng thái tích lũy rủi ro (Risk Engine)
+            </div>
+            <div class="sol-short">
+              5 tín hiệu: EAR + MAR + PERCLOS + Pitch + Yaw → Risk Score 0–100 →
+              Cảnh báo đa cấp
+            </div>
+            <div class="sol-long">
+              <div class="sol-bullet">
+                <strong>EAR</strong> — Microsleep: nhắm mắt liên tục >1.0s →
+                Risk=100 tức thì
+              </div>
+              <div class="sol-bullet">
+                <strong>MAR</strong> — Ngáp thật: há miệng >0.60 liên tục >1.0s
+                (+25 risk). Chống nhầm hát/cười
+              </div>
+              <div class="sol-bullet">
+                <strong>PERCLOS</strong> — >30% thời gian nhắm mắt trong 3 giây
+                → +2.0 risk/frame
+              </div>
+              <div class="sol-bullet">
+                <strong>Pitch</strong> — Gật gù >30° kèm mắt nhắm → +30 risk.
+                Phanh gấp (mắt mở) = bỏ qua
+              </div>
+              <div class="sol-bullet">
+                <strong>Veto Rules</strong> — Ngước đầu/quay đầu → tắt EAR
+                penalty (chống báo sai)
+              </div>
+              <div class="sol-bullet">
+                <strong>Decay</strong> — −1.0 risk/frame luôn hoạt động → risk
+                tự phục hồi về 0
+              </div>
+            </div>
+          </div>
+          <div class="card sol-card" onclick="this.classList.toggle('open')">
+            <span class="expand-arrow">▼</span>
+            <div class="sol-name">2. Nhận dạng khuôn mặt (Face ID)</div>
+            <div class="sol-short">
+              Kết hợp Landmark Signature (15D) + Spatial Histogram (512D), tự
+              động thích ứng theo góc Yaw
+            </div>
+            <div class="sol-long">
+              <div class="sol-bullet">
+                <strong>Phương pháp 1:</strong> 15 khoảng cách landmark chuẩn
+                hóa → vector 15 chiều
+              </div>
+              <div class="sol-bullet">
+                <strong>Phương pháp 2:</strong> Ảnh mặt chia lưới 4×4, mỗi ô
+                32-bin histogram → vector 512 chiều
+              </div>
+              <div class="sol-bullet">
+                <strong>Kết hợp:</strong> Trọng số 2 PP tự động thay đổi theo
+                góc xoay đầu (Yaw)
+              </div>
+              <div class="sol-bullet">
+                <em
+                  >⚠️ Module phụ trợ — hiện chưa kích hoạt trong luồng chính</em
+                >
+              </div>
+            </div>
+          </div>
+          <div class="card sol-card" onclick="this.classList.toggle('open')">
+            <span class="expand-arrow">▼</span>
+            <div class="sol-name">3. Cảnh báo âm thanh tự động</div>
+            <div class="sol-short">
+              13 file WAV, phát async không block giao diện, cooldown tùy chỉnh
+              chống spam
+            </div>
+            <div class="sol-long">
+              <div class="sol-bullet">
+                <strong>Nhóm cảnh báo:</strong> drowsy, yawning, nodding (3 loại
+                buồn ngủ)
+              </div>
+              <div class="sol-bullet">
+                <strong>Nhóm hệ thống:</strong> welcome, unknown driver, no
+                profile
+              </div>
+              <div class="sol-bullet">
+                <strong>Phát async</strong> bằng winsound API — không block giao
+                diện
+              </div>
+              <div class="sol-bullet">
+                <strong>Cooldown</strong> tự động 3–5 giây chống phát liên tục
+              </div>
+            </div>
+          </div>
+          <div class="card sol-card" onclick="this.classList.toggle('open')">
+            <span class="expand-arrow">▼</span>
+            <div class="sol-name">4. Face Mesh trực quan trên camera</div>
+            <div class="sol-short">
+              5 lớp contour: oval, mắt, iris, mũi, môi — đổi màu theo trạng thái
+            </div>
+            <div class="sol-long">
+              <div class="sol-bullet">
+                <strong>Viền mặt:</strong> 36 điểm (face oval)
+              </div>
+              <div class="sol-bullet">
+                <strong>Viền mắt:</strong> 16×2 điểm — vẽ cả 2 mắt
+              </div>
+              <div class="sol-bullet">
+                <strong>Mống mắt:</strong> 5×2 điểm (iris tracking)
+              </div>
+              <div class="sol-bullet">
+                <strong>Sống mũi:</strong> 6 điểm &nbsp;|&nbsp;
+                <strong>Viền môi:</strong> 20 điểm
+              </div>
+              <div class="sol-bullet">
+                <span style="color: var(--green); font-weight: 700"
+                  >Xanh lá</span
+                >
+                = bình thường &nbsp;|&nbsp;
+                <span style="color: var(--red); font-weight: 700">Đỏ</span> =
+                đang cảnh báo
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 4: CÔNG NGHỆ -->
+      <div class="slide" data-idx="3">
+        <div class="slide-tag tag-blue">CÔNG NGHỆ</div>
+        <div class="slide-title">Technology Stack</div>
+        <div class="slide-desc">Công nghệ sử dụng và lý do lựa chọn</div>
+        <div class="two-col">
+          <div>
+            <h3>Stack chính</h3>
+            <table class="t">
+              <tr>
+                <th>Công nghệ</th>
+                <th>Vai trò</th>
+                <th>Lý do chọn</th>
+              </tr>
+              <tr>
+                <td><strong>MediaPipe</strong></td>
+                <td>478 landmark + iris</td>
+                <td>30 FPS trên CPU</td>
+              </tr>
+              <tr>
+                <td><strong>OpenCV</strong></td>
+                <td>Xử lý ảnh, camera</td>
+                <td>Chuẩn công nghiệp</td>
+              </tr>
+              <tr>
+                <td><strong>Python 3.10+</strong></td>
+                <td>Ngôn ngữ chính</td>
+                <td>Hệ sinh thái ML/CV</td>
+              </tr>
+              <tr>
+                <td><strong>Tkinter</strong></td>
+                <td>GUI desktop</td>
+                <td>Built-in, nhẹ</td>
+              </tr>
+              <tr>
+                <td><strong>NumPy</strong></td>
+                <td>Tính toán vector</td>
+                <td>Nền tảng khoa học</td>
+              </tr>
+              <tr>
+                <td><strong>winsound</strong></td>
+                <td>Phát âm thanh</td>
+                <td>Native Windows, async</td>
+              </tr>
+            </table>
+          </div>
+          <div>
+            <h3>So sánh Face Detection Engine</h3>
+            <table class="t">
+              <tr>
+                <th>Tiêu chí</th>
+                <th>MediaPipe</th>
+                <th>Dlib</th>
+                <th>MTCNN</th>
+              </tr>
+              <tr>
+                <td>Landmarks</td>
+                <td class="win">478 + iris</td>
+                <td>68</td>
+                <td>5</td>
+              </tr>
+              <tr>
+                <td>FPS (CPU)</td>
+                <td class="win">~30</td>
+                <td>~15</td>
+                <td>~10</td>
+              </tr>
+              <tr>
+                <td>Model size</td>
+                <td class="win">5 MB auto</td>
+                <td>100 MB</td>
+                <td>2 MB</td>
+              </tr>
+              <tr>
+                <td>Multi-face</td>
+                <td class="win">Có (tối đa 4)</td>
+                <td>Không</td>
+                <td>Có</td>
+              </tr>
+              <tr>
+                <td>Iris tracking</td>
+                <td class="win">Có</td>
+                <td>Không</td>
+                <td>Không</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 5: KIẾN TRÚC -->
+      <div class="slide" data-idx="4">
+        <div class="slide-tag tag-purple">KIẾN TRÚC</div>
+        <div class="slide-title">Kiến trúc hệ thống</div>
+        <div class="slide-desc">
+          Hover vào từng module để xem chức năng chi tiết
+        </div>
+        <div class="clean-arch-box">
+          <strong>Clean Architecture — Plug & Play</strong><br />
+          Hệ thống tự hiệu chỉnh ngưỡng — không cần đăng ký khuôn mặt.
+          <strong>UI</strong> gọi <strong>Core</strong>,
+          <strong>Core</strong> đọc <strong>Config</strong>. Mỗi module hoàn
+          toàn độc lập.
+        </div>
+        <div style="text-align: center; margin-bottom: 8px">
+          <div
+            class="card"
+            style="
+              display: inline-block;
+              padding: 10px 28px;
+              font-weight: 700;
+              font-size: 1.15rem;
+            "
+          >
+            <span style="color: var(--blue)">main.py</span> — Entry Point
+          </div>
+          <div style="color: var(--text3); font-size: 1.2rem; margin: 3px 0">
+            ▼
+          </div>
+        </div>
+        <div class="arch-cols">
+          <div class="arch-col ui">
+            <div class="card">
+              <h3 style="color: var(--purple)">UI Layer</h3>
+              <div class="arch-module" data-mod="app">
+                <span class="adot"></span>app.py
+                <div class="atip">
+                  <strong>app.py — Giao diện chính</strong><br /><code
+                    >build_ui()</code
+                  >
+                  — Layout Tkinter: Camera + Controls + Log<br /><code
+                    >_update()</code
+                  >
+                  — vòng lặp 30ms: đọc frame → process → hiển thị<br /><code
+                    >_log(msg, color)</code
+                  >
+                  — ghi log có mã màu
+                </div>
+              </div>
+              <div class="arch-module" data-mod="led">
+                <span class="adot"></span>led_widget.py
+                <div class="atip">
+                  <strong>Widget LED trạng thái</strong><br />4 trạng thái
+                  chính: OFF, RUNNING_OK, RUNNING_UNKNOWN, ALERT<br />Hiệu ứng:
+                  tĩnh, nhấp nháy (5Hz), nhịp thở (1Hz)
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="arch-col core">
+            <div class="card">
+              <h3 style="color: var(--green)">Core Layer</h3>
+              <div class="arch-module" data-mod="detector">
+                <span class="adot"></span>detector.py
+                <div class="atip">
+                  <strong>Module xử lý cốt lõi</strong><br /><code
+                    >process_frame()</code
+                  >
+                  — CLAHE → FaceMesh → EAR/MAR/PERCLOS/Pitch →
+                  <strong>Risk Engine + Veto Rules</strong><br /><code
+                    >_evaluate_state()</code
+                  >
+                  — Tích lũy risk, state machine<br />Tự hiệu chỉnh EAR (60% max
+                  trong 60 frame)
+                </div>
+              </div>
+              <div class="arch-module dimmed" data-mod="faceid">
+                <span class="adot"></span>face_id.py
+                <em style="font-size: 0.85rem; color: var(--text3)"
+                  >(phụ trợ)</em
+                >
+                <div class="atip">
+                  <strong>Nhận dạng khuôn mặt (chưa kích hoạt)</strong
+                  ><br /><code>extract_face_signature()</code> — 15 khoảng cách
+                  landmark<br /><code>compute_face_histogram()</code> — lưới
+                  4×4, 512D<br /><code>is_owner()</code> — blend 2 PP theo Yaw
+                </div>
+              </div>
+              <div class="arch-module" data-mod="audio">
+                <span class="adot"></span>audio.py
+                <div class="atip">
+                  <strong>Phát âm thanh async</strong><br /><code
+                    >play(filename)</code
+                  >
+                  — winsound.SND_ASYNC, không block UI<br />Cooldown 3–5 giây
+                  chống phát liên tục
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="arch-col conf">
+            <div class="card">
+              <h3 style="color: var(--orange)">Config</h3>
+              <div class="arch-module" data-mod="config">
+                <span class="adot"></span>config.py
+                <div class="atip">
+                  <strong>Cấu hình tập trung</strong><br />ear_consec_frames =
+                  30 (~1.0s microsleep)<br />mar_thresh = 0.60 (ngưỡng ngáp)<br />pitch_drop_thresh
+                  = 30°<br />perclos_thresh = 0.30<br />risk_decay_rate = 1.0
+                  (luôn hoạt động)<br />risk_penalty_perclos = 2.0
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 6: EAR & MAR -->
+      <div class="slide" data-idx="5">
+        <div class="slide-tag tag-blue">CÔNG THỨC</div>
+        <div class="slide-title">EAR &amp; MAR — Phát hiện mắt &amp; miệng</div>
+        <div class="slide-desc">Kéo thanh trượt để mô phỏng trực tiếp</div>
+        <div class="sim-row">
+          <div class="sim-half">
+            <h3>Eye Aspect Ratio (EAR)</h3>
+            <div class="formula-block">
+              <div class="f-center"><span id="earFormula"></span></div>
+              <div class="f-vars">
+                <strong>p₁, p₄</strong> = khóe mắt trái &amp; phải (chiều
+                ngang)<br />
+                <strong>p₂, p₆</strong> = mí trên &amp; mí dưới (cạnh trái)<br />
+                <strong>p₃, p₅</strong> = mí trên &amp; mí dưới (cạnh phải)<br />
+                Mắt mở: EAR ≈ 0.28 &nbsp;|&nbsp; Mắt nhắm: EAR &lt; 0.20<br />
+                <strong style="color: var(--blue)"
+                  >Ngưỡng tự hiệu chỉnh = 60% × max(EAR)</strong
+                >
+              </div>
+            </div>
+            <div class="card sim-box" style="margin-top: 8px">
+              <canvas
+                id="eyeCanvas"
+                class="sim-canvas"
+                width="340"
+                height="140"
+              ></canvas>
+              <div style="width: 100%">
+                <label class="sim-label">Kéo để thay đổi EAR:</label>
+                <input
+                  type="range"
+                  class="sim-slider"
+                  id="earSlider"
+                  min="5"
+                  max="40"
+                  value="28"
+                  oninput="drawEye()"
+                />
+              </div>
+              <div class="sim-badge ok" id="earBadge">EAR = 0.28</div>
+              <div class="sim-state" id="earState" style="color: var(--green)">
+                Trạng thái: TỈNH TÁO
+              </div>
+            </div>
+          </div>
+          <div class="sim-half">
+            <h3>Mouth Aspect Ratio (MAR)</h3>
+            <div class="formula-block">
+              <div class="f-center"><span id="marFormula"></span></div>
+              <div class="f-vars">
+                <strong>p_top, p_bottom</strong> = điểm giữa môi trên &amp;
+                dưới<br />
+                <strong>p_left, p_right</strong> = khóe miệng trái &amp; phải<br />
+                Bình thường: MAR &lt; 0.60 &nbsp;|&nbsp; Đang ngáp: MAR &gt;
+                0.60<br />
+                <strong style="color: var(--red)"
+                  >Cười/Hát: MAR có thể &gt;0.60 nhưng không liên tục → bỏ
+                  qua</strong
+                >
+              </div>
+            </div>
+            <div class="card sim-box" style="margin-top: 8px">
+              <canvas
+                id="mouthCanvas"
+                class="sim-canvas"
+                width="340"
+                height="140"
+              ></canvas>
+              <div style="width: 100%">
+                <label class="sim-label">Kéo để thay đổi MAR:</label>
+                <input
+                  type="range"
+                  class="sim-slider"
+                  id="marSlider"
+                  min="0"
+                  max="80"
+                  value="5"
+                  oninput="drawMouth()"
+                />
+              </div>
+              <div class="sim-badge ok" id="marBadge">MAR = 0.05</div>
+              <div class="sim-state" id="marState" style="color: var(--green)">
+                Trạng thái: BÌNH THƯỜNG
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 7: HEAD POSE & RISK ENGINE -->
+      <div class="slide" data-idx="6">
+        <div class="slide-tag tag-orange">CƠ CHẾ</div>
+        <div class="slide-title">Head Pose &amp; Risk Engine</div>
+        <div class="slide-desc">
+          Ước lượng góc đầu kết hợp máy trạng thái tích lũy rủi ro
+        </div>
+        <div class="split">
+          <div>
+            <h3>Head Pose Estimation</h3>
+            <div class="formula-block">
+              <div class="f-center"><span id="pnpFormula"></span></div>
+              <div class="f-vars">
+                <strong>P_3D</strong> = 6 điểm chuẩn 3D (mũi, cằm, khóe mắt,
+                khóe miệng)<br />
+                <strong>P_2D</strong> = 6 điểm tương ứng trên ảnh 2D<br />
+                <strong>Pitch</strong> = gật (trước/sau) &nbsp;|&nbsp;
+                <strong>Yaw</strong> = quay (trái/phải) &nbsp;|&nbsp;
+                <strong>Roll</strong> = nghiêng
+              </div>
+            </div>
+            <h3 style="margin-top: 14px">Risk Engine — Tích lũy rủi ro</h3>
+            <div class="risk-info">
+              <div class="ri-section">
+                <span class="ri-icon">📊</span>
+                <strong>Tín hiệu → Điểm phạt:</strong><br />
+                • Nhắm mắt bất thường (>0.5s): <strong>+25</strong> risk<br />
+                • Microsleep (>1.0s):
+                <strong style="color: var(--red)">Risk = 100</strong> tức thì<br />
+                • Ngáp thật (>1.0s liên tục): <strong>+25</strong> risk<br />
+                • Gật gù + mắt nhắm: <strong>+30</strong> risk<br />
+                • PERCLOS > 30%: <strong>+2.0</strong>/frame
+              </div>
+              <div class="ri-section">
+                <span class="ri-icon">📉</span> <strong>Phục hồi:</strong> Decay
+                <strong>−1.0</strong>/frame <em>(LUÔN hoạt động)</em>
+              </div>
+              <div class="ri-section">
+                <span class="ri-icon">🛡️</span>
+                <strong>Veto Rules:</strong> Ngước đầu >25° / Quay đầu >30° →
+                tắt EAR penalty
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3>Mô phỏng sóng EAR theo thời gian</h3>
+            <div class="card wave-wrap">
+              <canvas
+                id="waveCanvas"
+                class="wave-canvas"
+                width="520"
+                height="240"
+              ></canvas>
+              <div class="wave-bar">
+                <button
+                  class="wave-btn on"
+                  id="wavePlayBtn"
+                  onclick="togWave()"
+                >
+                  Pause
+                </button>
+                <button class="wave-btn" onclick="rstWave()">Reset</button>
+                <span
+                  style="
+                    font-family: &quot;JetBrains Mono&quot;;
+                    font-size: 0.95rem;
+                    font-weight: 700;
+                  "
+                  id="waveState"
+                  style="color: var(--green)"
+                  >TỈNH TÁO</span
+                >
+              </div>
+              <div class="wave-legend">
+                <span
+                  ><span class="ldot" style="background: var(--blue)"></span>
+                  EAR</span
+                >
+                <span
+                  ><span class="ldot" style="background: var(--red)"></span>
+                  Ngưỡng (0.20)</span
+                >
+                <span
+                  ><span
+                    class="ldot"
+                    style="background: rgba(239, 68, 68, 0.12)"
+                  ></span>
+                  Vùng nguy hiểm</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 8: TỰ HIỆU CHỈNH & GIAO DIỆN -->
+      <div class="slide" data-idx="7">
+        <div class="slide-tag tag-green">PLUG & PLAY</div>
+        <div class="slide-title">Tự hiệu chỉnh &amp; Giao diện</div>
+        <div class="slide-desc">
+          Không cần đăng ký — hệ thống tự thích ứng mọi khuôn mặt trong vài giây
+          đầu tiên
+        </div>
+        <div class="split">
+          <div>
+            <h3>Cơ chế tự hiệu chỉnh EAR</h3>
+            <div class="info-box" style="font-size: 1.25rem; line-height: 1.9">
+              <strong style="color: var(--blue)"
+                >Rolling window 60 frame:</strong
+              ><br />
+              <code
+                style="
+                  background: var(--card);
+                  padding: 4px 10px;
+                  border-radius: 5px;
+                  font-family: &quot;JetBrains Mono&quot;;
+                  font-size: 1.1rem;
+                  border: 1px solid var(--border-light);
+                "
+                >dynamic_ear_open = max(EAR gần đây)</code
+              ><br /><br />
+              <strong style="color: var(--blue)">Ngưỡng tự động:</strong><br />
+              <code
+                style="
+                  background: var(--card);
+                  padding: 4px 10px;
+                  border-radius: 5px;
+                  font-family: &quot;JetBrains Mono&quot;;
+                  font-size: 1.1rem;
+                  border: 1px solid var(--border-light);
+                "
+                >ear_thresh = max(0.12, dynamic_ear_open × 0.60)</code
+              >
+            </div>
+            <h3 style="margin-top: 12px">Ví dụ theo loại khuôn mặt</h3>
+            <table class="cal-table">
+              <tr>
+                <th>Khuôn mặt</th>
+                <th>EAR mở max</th>
+                <th>Ngưỡng tự động</th>
+                <th>Ghi chú</th>
+              </tr>
+              <tr>
+                <td>Mắt to</td>
+                <td><strong>0.35</strong></td>
+                <td style="color: var(--blue); font-weight: 700">0.21</td>
+                <td>Ngưỡng cao, ít nhạy</td>
+              </tr>
+              <tr>
+                <td>Mắt trung bình</td>
+                <td><strong>0.28</strong></td>
+                <td style="color: var(--blue); font-weight: 700">0.17</td>
+                <td>Chuẩn</td>
+              </tr>
+              <tr>
+                <td>Mắt híp</td>
+                <td><strong>0.22</strong></td>
+                <td style="color: var(--blue); font-weight: 700">0.13</td>
+                <td>Ngưỡng thấp, vẫn chính xác</td>
+              </tr>
+              <tr>
+                <td>Kính râm</td>
+                <td><strong>0.15</strong></td>
+                <td style="color: var(--orange); font-weight: 700">0.12</td>
+                <td>Sàn an toàn → Sunglasses Mode</td>
+              </tr>
+            </table>
+          </div>
+          <div>
+            <h3>Giao diện ứng dụng</h3>
+            <div class="ui-mock">
+              <div class="mock-top">
+                CAMERA FEED (960 × 720)<br /><span style="font-size: 0.95rem"
+                  >[Face Mesh] [Iris] [BBox: Tài xế / Hành khách]</span
+                >
+              </div>
+              <div class="mock-mid">
+                <div class="mock-led"></div>
+                <span style="color: var(--green); font-weight: 600"
+                  >Mode: BÌNH THƯỜNG</span
+                >
+                <span>|</span><span>EAR: 0.28 &nbsp; MAR: 0.02</span>
+                <span>|</span><span style="font-weight: 600">Risk: 0/100</span>
+              </div>
+              <div class="mock-bottom">
+                <span class="log-b">[10:52:26]</span> CANH BAO: DANG NGAP
+                (YAWNING)<br />
+                <span class="log-g">[10:52:27]</span> Binh thuong tro lai<br />
+                <span class="log-r">[10:53:05]</span> CANH BAO: NGU GAT!
+                (CONFIRMED)<br />
+                <span class="log-b">[10:53:11]</span> CANH BAO: DANG BUON NGU
+                (SUSPECTED)<br />
+                <span class="log-g">[10:53:13]</span> Binh thuong tro lai
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 9: RISK TIMELINE SIMULATION -->
+      <div class="slide" data-idx="8">
+        <div class="slide-tag tag-red">MÔ PHỎNG</div>
+        <div class="slide-title">Risk Timeline — Mô phỏng tích lũy rủi ro</div>
+        <div class="slide-desc">
+          Xem risk tích lũy và phục hồi theo thời gian — nhấn các nút để mô
+          phỏng hành vi lái xe
+        </div>
+        <div class="risk-sim-wrap">
+          <canvas id="riskCanvas" class="risk-canvas"></canvas>
+          <div class="risk-btns">
+            <button class="risk-btn b-blink" onclick="riskAction('blink')">
+              Chớp mắt (0.3s)
+            </button>
+            <button class="risk-btn b-yawn" onclick="riskAction('yawn')">
+              Ngáp 1 cái (+25)
+            </button>
+            <button class="risk-btn b-nod" onclick="riskAction('nod')">
+              Gật gù (+30)
+            </button>
+            <button class="risk-btn b-micro" onclick="riskAction('micro')">
+              Microsleep (=100)
+            </button>
+            <button class="risk-btn b-reset" onclick="riskAction('reset')">
+              Reset
+            </button>
+          </div>
+          <div class="risk-status" id="riskStatus" style="color: var(--green)">
+            TỈNH TÁO — Risk: 0/100
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 10: PIPELINE -->
+      <div class="slide" data-idx="9">
+        <div class="slide-tag tag-blue">PIPELINE</div>
+        <div class="slide-title">Pipeline xử lý 1 Frame</div>
+        <div class="slide-desc">
+          Từ Camera đến Cảnh báo trong ~30ms — Click từng bước để xem chi tiết
+        </div>
+        <div class="pipe-row" id="pipeline">
+          <div class="pipe-step on" onclick="showPipe(0)">
+            <div class="pipe-num">01</div>
+            <div class="pipe-name">Camera</div>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step" onclick="showPipe(1)">
+            <div class="pipe-num">02</div>
+            <div class="pipe-name">CLAHE</div>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step" onclick="showPipe(2)">
+            <div class="pipe-num">03</div>
+            <div class="pipe-name">FaceMesh</div>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step" onclick="showPipe(3)">
+            <div class="pipe-num">04</div>
+            <div class="pipe-name">Metrics</div>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step" onclick="showPipe(4)">
+            <div class="pipe-num">05</div>
+            <div class="pipe-name">Risk</div>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step" onclick="showPipe(5)">
+            <div class="pipe-num">06</div>
+            <div class="pipe-name">Alert</div>
+          </div>
+        </div>
+        <div class="pipe-info" id="pipeInfo">
+          <strong>Bước 1: Camera</strong><br />
+          Đọc frame từ webcam (960×720 pixels), flip ngang (mirror) để hiển thị
+          tự nhiên cho tài xế.<br />
+          <code>frame = cv2.flip(cap.read(), 1)</code>
+        </div>
+        <div
+          style="display: flex; gap: 14px; margin-top: 16px; flex-wrap: wrap"
+        >
+          <div class="slide-tag tag-blue tag-lg" style="margin: 0">
+            Tổng: ~30ms / frame
+          </div>
+          <div class="slide-tag tag-green tag-lg" style="margin: 0">
+            ~33 FPS trên CPU laptop
+          </div>
+          <div class="slide-tag tag-purple tag-lg" style="margin: 0">
+            Resolution: 960 × 720
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 11: KẾT QUẢ -->
+      <div class="slide" data-idx="10">
+        <div class="slide-tag tag-green">KẾT QUẢ</div>
+        <div class="slide-title">Kết quả &amp; Hướng phát triển</div>
+        <div class="slide-desc">
+          Thử nghiệm trên laptop Intel i5, webcam 720p — 24 kịch bản test PASS
+        </div>
+        <div class="res-grid">
+          <div class="res-half">
+            <h3>Kết quả thử nghiệm</h3>
+            <div class="res-item">
+              <span style="color: var(--green); font-weight: 700">✓</span
+              ><span class="ri-label">Microsleep 1s → Risk=100</span
+              ><span class="ri-time">tức thì</span>
+            </div>
+            <div class="res-item">
+              <span style="color: var(--green); font-weight: 700">✓</span
+              ><span class="ri-label">Ngáp >1.0s → +25 risk</span
+              ><span class="ri-time">~1.0s</span>
+            </div>
+            <div class="res-item">
+              <span style="color: var(--green); font-weight: 700">✓</span
+              ><span class="ri-label">Gật đầu >30° + mắt nhắm</span
+              ><span class="ri-time">~0.5s</span>
+            </div>
+            <div class="res-item">
+              <span style="color: var(--green); font-weight: 700">✓</span
+              ><span class="ri-label">Chớp mắt → không báo sai</span
+              ><span class="ri-time">—</span>
+            </div>
+            <div class="res-item">
+              <span style="color: var(--green); font-weight: 700">✓</span
+              ><span class="ri-label">Hát/cười → không báo ngáp</span
+              ><span class="ri-time">—</span>
+            </div>
+            <div class="res-item">
+              <span style="color: var(--green); font-weight: 700">✓</span
+              ><span class="ri-label">Phanh gấp/ngước đầu → không báo sai</span
+              ><span class="ri-time">—</span>
+            </div>
+            <div class="res-item">
+              <span style="color: var(--green); font-weight: 700">✓</span
+              ><span class="ri-label">Risk tự phục hồi về 0</span
+              ><span class="ri-time">~1-2s</span>
+            </div>
+            <div class="res-item">
+              <span style="color: var(--green); font-weight: 700">✓</span
+              ><span class="ri-label">Đeo kính râm → Sunglasses Mode</span
+              ><span class="ri-time">~2s</span>
+            </div>
+          </div>
+          <div class="res-half">
+            <h3>Hạn chế &amp; Hướng phát triển</h3>
+            <div class="lim-item" onclick="this.classList.toggle('open')">
+              <div class="lim-head">
+                Chỉ chạy trên Windows <span class="lim-arrow">▼</span>
+              </div>
+              <div class="lim-body">
+                Do dùng winsound API. Thay bằng pygame.mixer cho cross-platform.
+              </div>
+            </div>
+            <div class="lim-item" onclick="this.classList.toggle('open')">
+              <div class="lim-head">
+                Chưa có logging dữ liệu risk <span class="lim-arrow">▼</span>
+              </div>
+              <div class="lim-body">
+                Ghi file log lịch sử risk_score theo thời gian để phân tích sau
+                chuyến đi.
+              </div>
+            </div>
+            <div class="lim-item" onclick="this.classList.toggle('open')">
+              <div class="lim-head">
+                Chưa có module xao lãng <span class="lim-arrow">▼</span>
+              </div>
+              <div class="lim-body">
+                Nhìn sang bên quá lâu (Yaw) chưa phạt risk — chỉ ghi nhận
+                DISTRACTED.
+              </div>
+            </div>
+            <div class="lim-item" onclick="this.classList.toggle('open')">
+              <div class="lim-head">
+                Gửi cảnh báo về điện thoại <span class="lim-arrow">▼</span>
+              </div>
+              <div class="lim-body">
+                MQTT / Firebase push notification cho fleet manager giám sát từ
+                xa.
+              </div>
+            </div>
+            <div class="lim-item" onclick="this.classList.toggle('open')">
+              <div class="lim-head">
+                Tích hợp camera hành trình <span class="lim-arrow">▼</span>
+              </div>
+              <div class="lim-body">
+                Nhận RTSP stream từ dashcam thay vì webcam USB.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 12: DEMO -->
+      <div class="slide final" data-idx="11" data-extra-class="final">
+        <div class="slide-tag tag-blue">DEMO</div>
+        <div class="slide-title" style="font-size: 2.4rem">
+          Demo trực tiếp &amp; Hỏi đáp
+        </div>
+        <div class="slide-desc" style="text-align: center; margin: 0 auto 14px">
+          Khởi chạy:
+          <code
+            style="
+              background: var(--card);
+              padding: 4px 12px;
+              border-radius: 6px;
+              font-family: &quot;JetBrains Mono&quot;;
+              border: 1px solid var(--border-light);
+              font-size: 1.05rem;
+            "
+            >python anti_sleepy/main.py</code
+          >
+        </div>
+        <div class="final-steps">
+          <div
+            class="final-step"
+            style="background: var(--blue-bg); color: var(--blue)"
+          >
+            1. Khởi động → Tự hiệu chỉnh
+          </div>
+          <div
+            class="final-step"
+            style="background: var(--red-bg); color: var(--red)"
+          >
+            2. Nhắm mắt → Risk tăng → Cảnh báo
+          </div>
+          <div
+            class="final-step"
+            style="background: var(--orange-bg); color: var(--orange)"
+          >
+            3. Ngáp → +25 risk → Decay về 0
+          </div>
+          <div
+            class="final-step"
+            style="background: var(--green-bg); color: var(--green)"
+          >
+            4. Hát/Cười → Không báo sai
+          </div>
+        </div>
+        <h3 style="text-align: center; margin-top: 16px">Tài liệu tham khảo</h3>
+        <ol class="refs">
+          <li>
+            <strong>Soukupová &amp; Čech</strong> (2016).
+            <em>Real-Time Eye Blink Detection using Facial Landmarks</em>. CVWW.
+          </li>
+          <li>
+            <strong>Lugaresi et al.</strong> (2019).
+            <em>MediaPipe: A Framework for Perception Pipelines</em>.
+            arXiv:1906.08172.
+          </li>
+          <li>
+            <strong>Google AI.</strong> <em>MediaPipe Face Mesh</em>.
+            ai.google.dev/edge/mediapipe
+          </li>
+          <li>
+            <strong>OpenCV.</strong> <em>solvePnP — Perspective-n-Point</em>.
+            docs.opencv.org/4.x
+          </li>
+          <li>
+            <strong>Bradski, G.</strong> (2000). <em>The OpenCV Library</em>.
+            Dr. Dobb's Journal.
+          </li>
+          <li>
+            <strong>Dinges &amp; Grace</strong> (1998).
+            <em>PERCLOS: A valid psychophysiological measure of alertness</em>.
+          </li>
+        </ol>
+        <div class="thanks">CẢM ƠN CÔ VÀ CÁC BẠN ĐÃ LẮNG NGHE!</div>
+      </div>
+    </div>
+
+    <!-- MODAL -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeMod()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <span class="modal-close" onclick="closeMod()">✕</span>
+        <h4 id="modTitle"></h4>
+        <div class="modal-body" id="modBody"></div>
+      </div>
+    </div>
+
+    <!-- NAVBAR -->
+    <div class="navbar">
+      <button
+        class="nav-btn outline"
+        id="prevBtn"
+        onclick="go(cur - 1)"
+        disabled
+      >
+        ← Prev
+      </button>
+      <div class="progress">
+        <div class="progress-fill" id="progFill" style="width: 8.33%"></div>
+      </div>
+      <div class="slide-num" id="slideNum">1 / 12</div>
+      <button class="nav-btn" id="nextBtn" onclick="go(cur + 1)">Next →</button>
+    </div>
+
+    <script>
+      /* === NAV === */
+      const slides = document.querySelectorAll(".slide"),
+        N = slides.length;
+      let cur = 0,
+        transitioning = false;
+      const ec = (s) => {
+        const c = s.dataset.extraClass;
+        return c ? " " + c : "";
+      };
+      function go(n) {
+        if (n < 0 || n >= N || n === cur || transitioning) return;
+        transitioning = true;
+        const old = cur,
+          fwd = n > old;
+        slides.forEach((s, i) => {
+          if (i !== old && i !== n) {
+            s.className = "slide" + ec(s);
+            s.removeAttribute("style");
+          }
+        });
+        const inc = slides[n],
+          out = slides[old];
+        inc.className = "slide" + ec(inc);
+        inc.style.transition = "none";
+        inc.style.opacity = "0";
+        inc.style.visibility = "visible";
+        inc.style.transform = fwd ? "translateX(60px)" : "translateX(-60px)";
+        inc.style.zIndex = "2";
+        void inc.offsetWidth;
+        inc.style.transition = "opacity .4s ease,transform .4s ease";
+        inc.style.opacity = "1";
+        inc.style.transform = "translateX(0)";
+        out.style.transition = "opacity .4s ease,transform .4s ease";
+        out.style.opacity = "0";
+        out.style.transform = fwd ? "translateX(-60px)" : "translateX(60px)";
+        out.style.zIndex = "1";
+        cur = n;
+        document.getElementById("prevBtn").disabled = cur === 0;
+        document.getElementById("nextBtn").disabled = cur === N - 1;
+        document.getElementById("slideNum").textContent = `${cur + 1} / ${N}`;
+        document.getElementById("progFill").style.width =
+          `${((cur + 1) / N) * 100}%`;
+        setTimeout(() => {
+          inc.className = "slide active" + ec(inc);
+          inc.removeAttribute("style");
+          out.className = "slide" + ec(out);
+          out.removeAttribute("style");
+          transitioning = false;
+        }, 430);
+        onEnter(cur);
+      }
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === " ") {
+          e.preventDefault();
+          go(cur + 1);
+        }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          go(cur - 1);
+        }
+      });
+
+      /* === COVER TYPING === */
+      const fullText = "Hệ thống Phát hiện Buồn ngủ cho Tài xế";
+      let ci = 0;
+      function typeIt() {
+        if (ci <= fullText.length) {
+          const el = document.getElementById("typedText");
+          el.innerHTML = fullText
+            .slice(0, ci)
+            .replace(/(Buồn ngủ)/g, '<span class="hl">$1</span>');
+          ci++;
+          setTimeout(typeIt, 50);
+        } else {
+          document.getElementById("typeCursor").style.display = "none";
+          document
+            .querySelectorAll(".team-chip")
+            .forEach((c) => c.classList.add("show"));
+        }
+      }
+      setTimeout(typeIt, 300);
+
+      /* === COUNTERS === */
+      function animCounters() {
+        document.querySelectorAll(".stat-num[data-target]").forEach((el) => {
+          const t = +el.dataset.target,
+            s = el.dataset.suffix || "",
+            dur = 1400,
+            start = performance.now();
+          (function tick(now) {
+            const p = Math.min((now - start) / dur, 1),
+              e = 1 - Math.pow(1 - p, 3);
+            el.textContent = Math.round(t * e).toLocaleString("vi-VN") + s;
+            if (p < 1) requestAnimationFrame(tick);
+          })(performance.now());
+        });
+      }
+
+      /* === MODULE POPUPS === */
+      const mods = {
+        app: [
+          "app.py — Giao diện chính",
+          "<strong>Chức năng:</strong> Layout Tkinter (Camera → Controls → Log Panel)<br><br>• <code>build_ui()</code> — xây dựng layout: Camera trên, Controls giữa, Log dưới<br>• <code>_update()</code> — vòng lặp 30ms: đọc frame → process → cảnh báo → hiển thị<br>• <code>_log(msg, color)</code> — ghi log có mã màu<br>• LED widget: OFF / RUNNING_OK / ALERT",
+        ],
+        led: [
+          "led_widget.py — LED ảo",
+          "<strong>Chức năng:</strong> Widget LED trạng thái bằng Canvas<br><br>4 trạng thái chính: OFF, RUNNING_OK, RUNNING_UNKNOWN, ALERT<br><br>Hiệu ứng: tĩnh, nhấp nháy (5Hz), nhịp thở (1Hz)",
+        ],
+        detector: [
+          "detector.py — Module xử lý cốt lõi",
+          "<strong>Chức năng:</strong> Pipeline xử lý từng frame camera<br><br>• <code>process_frame()</code> — CLAHE → FaceMesh → EAR/MAR/PERCLOS/Pitch → <strong>Risk Engine + Veto Rules</strong><br>• <code>_evaluate_state()</code> — Tích lũy risk score, state machine transitions<br>• <code>get_ear()</code> — Eye Aspect Ratio từ 6 điểm<br>• <code>get_mar()</code> — Mouth Aspect Ratio từ 4 điểm<br>• <code>get_head_pose()</code> — cv2.solvePnP → Pitch/Yaw/Roll<br>• <strong>Tự hiệu chỉnh EAR</strong> = 60% × max(EAR trong 60 frame)",
+        ],
+        faceid: [
+          "face_id.py — Nhận dạng khuôn mặt (phụ trợ)",
+          "<strong>Chức năng:</strong> 2 phương pháp nhận dạng kết hợp<br><br>• <code>extract_face_signature(lm)</code> — 15 khoảng cách landmark chuẩn hóa<br>• <code>compute_face_histogram(frame)</code> — lưới 4×4, 32 bin/ô = 512D<br>• <code>is_owner()</code> — blend theo Yaw → trả (bool, score)<br><br><em>⚠️ Module này hiện chưa được kích hoạt trong luồng chính</em>",
+        ],
+        audio: [
+          "audio.py — Phát âm thanh async",
+          "<strong>Chức năng:</strong> Singleton phát âm thanh WAV<br><br>• <code>play(filename, cooldown, force)</code> — winsound.SND_ASYNC, không block UI<br>• <code>stop()</code> — winsound.SND_PURGE<br>• Cooldown tự động 3–5 giây chống phát liên tục",
+        ],
+        config: [
+          "config.py — Cấu hình tập trung",
+          "<strong>Chức năng:</strong> Python dataclass + Enum chứa toàn bộ tham số<br><br>• <strong>DriverState</strong>: NORMAL, DISTRACTED, HEAD_DOWN, YAWN_CANDIDATE, SUSPECTED, CONFIRMED<br>• <strong>AlertLevel</strong>: NONE, EARLY_WARNING, HIGH_RISK<br><br>• ear_consec_frames = 30 (~1.0s microsleep)<br>• mar_thresh = 0.60 (ngưỡng ngáp)<br>• mar_consec_frames = 30 (~1.0s liên tục)<br>• pitch_drop_thresh = 30°<br>• perclos_thresh = 0.30<br>• risk_decay_rate = 1.0 (luôn hoạt động)<br>• risk_penalty_perclos = 2.0",
+        ],
+      };
+      document.querySelectorAll(".arch-module").forEach((el) => {
+        el.addEventListener("click", () => {
+          const m = el.dataset.mod;
+          if (mods[m]) {
+            document.getElementById("modTitle").textContent = mods[m][0];
+            document.getElementById("modBody").innerHTML = mods[m][1];
+            document.getElementById("modalOverlay").classList.add("show");
+          }
+        });
+      });
+      function closeMod() {
+        document.getElementById("modalOverlay").classList.remove("show");
+      }
+
+      /* === KaTeX === */
+      function renderFormulas() {
+        try {
+          katex.render(
+            String.raw`\text{EAR} = \frac{\|p_2 - p_6\| + \|p_3 - p_5\|}{2 \times \|p_1 - p_4\|}`,
+            document.getElementById("earFormula"),
+            { displayMode: true },
+          );
+          katex.render(
+            String.raw`\text{MAR} = \frac{\|p_{top} - p_{bottom}\|}{\|p_{left} - p_{right}\|}`,
+            document.getElementById("marFormula"),
+            { displayMode: true },
+          );
+          katex.render(
+            String.raw`\texttt{cv2.solvePnP}\!\bigl(\underbrace{P_{3D}}_{6\text{ pts}},\ \underbrace{P_{2D}}_{6\text{ pts}}\bigr) \;\longrightarrow\; \begin{bmatrix} \text{Pitch} \\ \text{Yaw} \\ \text{Roll} \end{bmatrix}`,
+            document.getElementById("pnpFormula"),
+            { displayMode: true },
+          );
+        } catch (e) {
+          console.warn("KaTeX:", e);
+        }
+      }
+
+      /* === EYE SIM === */
+      function drawEye() {
+        const ear = +document.getElementById("earSlider").value / 100;
+        const c = document.getElementById("eyeCanvas"),
+          ctx = c.getContext("2d");
+        const W = c.width,
+          H = c.height,
+          cx = W / 2,
+          cy = H / 2,
+          hw = 85,
+          hh = hw * ear * 1.5;
+        const bad = ear < 0.2;
+        ctx.clearRect(0, 0, W, H);
+        ctx.beginPath();
+        ctx.moveTo(cx - hw, cy);
+        ctx.quadraticCurveTo(cx - hw * 0.3, cy - hh, cx, cy - hh);
+        ctx.quadraticCurveTo(cx + hw * 0.3, cy - hh, cx + hw, cy);
+        ctx.quadraticCurveTo(cx + hw * 0.3, cy + hh, cx, cy + hh);
+        ctx.quadraticCurveTo(cx - hw * 0.3, cy + hh, cx - hw, cy);
+        ctx.closePath();
+        ctx.fillStyle = bad ? "#fef2f2" : "#f0fdf4";
+        ctx.fill();
+        ctx.strokeStyle = bad ? "#ef4444" : "#22c55e";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        if (ear > 0.06) {
+          const r = Math.min(hh * 0.7, 20);
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fillStyle = bad ? "#991b1b" : "#064e3b";
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = "#000";
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(cx - r * 0.25, cy - r * 0.25, r * 0.18, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,.6)";
+          ctx.fill();
+        }
+        const pts = [
+          [cx - hw, cy],
+          [cx - hw * 0.3, cy - hh],
+          [cx + hw * 0.3, cy - hh],
+          [cx + hw, cy],
+          [cx + hw * 0.3, cy + hh],
+          [cx - hw * 0.3, cy + hh],
+        ];
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pts[1][0], pts[1][1]);
+        ctx.lineTo(pts[5][0], pts[5][1]);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pts[2][0], pts[2][1]);
+        ctx.lineTo(pts[4][0], pts[4][1]);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        ctx.lineTo(pts[3][0], pts[3][1]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        pts.forEach((p, i) => {
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
+          ctx.fillStyle = "#2563eb";
+          ctx.fill();
+          ctx.fillStyle = "#1d1d1f";
+          ctx.font = '600 11px "JetBrains Mono"';
+          ctx.fillText(
+            "p" + (i + 1),
+            p[0] + (i === 3 ? -22 : 6),
+            p[1] + (i < 3 ? -8 : 14),
+          );
+        });
+        const badge = document.getElementById("earBadge");
+        badge.textContent = `EAR = ${ear.toFixed(2)}`;
+        badge.className = `sim-badge ${bad ? "danger" : "ok"}`;
+        const st = document.getElementById("earState");
+        st.textContent = bad ? "Trạng thái: BUỒN NGỦ" : "Trạng thái: TỈNH TÁO";
+        st.style.color = bad ? "var(--red)" : "var(--green)";
+      }
+
+      /* === MOUTH SIM === */
+      function drawMouth() {
+        const mar = +document.getElementById("marSlider").value / 100;
+        const c = document.getElementById("mouthCanvas"),
+          ctx = c.getContext("2d");
+        const W = c.width,
+          H = c.height,
+          cx = W / 2,
+          cy = H / 2,
+          hw = 80,
+          hh = hw * mar * 1.2;
+        const bad = mar > 0.6;
+        ctx.clearRect(0, 0, W, H);
+        ctx.beginPath();
+        ctx.moveTo(cx - hw, cy);
+        ctx.quadraticCurveTo(cx - hw * 0.5, cy - hh - 10, cx, cy - hh - 10);
+        ctx.quadraticCurveTo(cx + hw * 0.5, cy - hh - 10, cx + hw, cy);
+        ctx.quadraticCurveTo(cx + hw * 0.5, cy + hh + 10, cx, cy + hh + 10);
+        ctx.quadraticCurveTo(cx - hw * 0.5, cy + hh + 10, cx - hw, cy);
+        ctx.closePath();
+        ctx.fillStyle = bad ? "#fef2f2" : "#faf5ff";
+        ctx.fill();
+        ctx.strokeStyle = bad ? "#ef4444" : "#a855f7";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        if (hh > 2) {
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, hw * 0.55, hh, 0, 0, Math.PI * 2);
+          ctx.fillStyle = bad ? "#fca5a5" : "#e9d5ff";
+          ctx.fill();
+        }
+        const pts = [
+          [cx, cy - hh - 10],
+          [cx, cy + hh + 10],
+          [cx - hw, cy],
+          [cx + hw, cy],
+        ];
+        const lbl = ["top", "bottom", "left", "right"];
+        pts.forEach((p, i) => {
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
+          ctx.fillStyle = "#a855f7";
+          ctx.fill();
+          ctx.fillStyle = "#1d1d1f";
+          ctx.font = '600 10px "JetBrains Mono"';
+          ctx.fillText(lbl[i], p[0] + (i === 2 ? -32 : 8), p[1] - 7);
+        });
+        const badge = document.getElementById("marBadge");
+        badge.textContent = `MAR = ${mar.toFixed(2)}`;
+        badge.className = `sim-badge ${bad ? "danger" : "ok"}`;
+        const st = document.getElementById("marState");
+        st.textContent = bad
+          ? "Trạng thái: ĐANG NGÁP"
+          : "Trạng thái: BÌNH THƯỜNG";
+        st.style.color = bad ? "var(--red)" : "var(--green)";
+      }
+
+      /* === WAVEFORM === */
+      let wRun = true,
+        wData = [],
+        wT = 0,
+        wId = null,
+        belowCount = 0;
+      function genEAR(t) {
+        let e = 0.28 + Math.sin(t * 0.5) * 0.02 + (Math.random() - 0.5) * 0.012;
+        const blink = t % 5;
+        if (blink > 4.5 && blink < 4.7) e = 0.1 + Math.random() * 0.04;
+        const cyc = t % 14;
+        if (cyc > 5 && cyc < 9) e = 0.08 + Math.sin((cyc - 5) * 0.8) * 0.04;
+        return Math.max(0.03, Math.min(0.4, e));
+      }
+      function drawWave() {
+        const c = document.getElementById("waveCanvas");
+        if (!c) return;
+        const ctx = c.getContext("2d"),
+          W = c.width,
+          H = c.height;
+        const m = { t: 22, b: 24, l: 40, r: 10 },
+          pW = W - m.l - m.r,
+          pH = H - m.t - m.b;
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = "#fafafa";
+        ctx.fillRect(m.l, m.t, pW, pH);
+        ctx.strokeStyle = "#e8e8ed";
+        ctx.lineWidth = 0.5;
+        for (let y = 0; y <= 0.4; y += 0.1) {
+          const py = m.t + pH - (y / 0.4) * pH;
+          ctx.beginPath();
+          ctx.moveTo(m.l, py);
+          ctx.lineTo(W - m.r, py);
+          ctx.stroke();
+          ctx.fillStyle = "#94a3b8";
+          ctx.font = '500 10px "JetBrains Mono"';
+          ctx.fillText(y.toFixed(1), 2, py + 4);
+        }
+        const thY = m.t + pH - (0.2 / 0.4) * pH;
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(m.l, thY);
+        ctx.lineTo(W - m.r, thY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = "rgba(239,68,68,.06)";
+        ctx.fillRect(m.l, thY, pW, pH + m.t - thY);
+        if (wData.length > 1) {
+          const max = Math.floor(pW / 2.5),
+            si = Math.max(0, wData.length - max),
+            vis = wData.slice(si);
+          ctx.beginPath();
+          ctx.strokeStyle = "#2563eb";
+          ctx.lineWidth = 2;
+          vis.forEach((v, i) => {
+            const x = m.l + (i / max) * pW,
+              y = m.t + pH - (v / 0.4) * pH;
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          });
+          ctx.stroke();
+          const lv = vis[vis.length - 1],
+            lx = m.l + ((vis.length - 1) / max) * pW,
+            ly = m.t + pH - (lv / 0.4) * pH;
+          ctx.beginPath();
+          ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+          ctx.fillStyle = lv < 0.2 ? "#ef4444" : "#2563eb";
+          ctx.fill();
+          const st = document.getElementById("waveState");
+          if (st) {
+            if (lv < 0.2) belowCount = Math.min(belowCount + 1, 100);
+            else belowCount = Math.max(belowCount - 2, 0);
+            if (belowCount >= 15) {
+              st.textContent = "BUỒN NGỦ — CẢNH BÁO!";
+              st.style.color = "var(--red)";
+              st.style.fontWeight = "800";
+            } else {
+              st.textContent = "TỈNH TÁO";
+              st.style.color = "var(--green)";
+              st.style.fontWeight = "700";
+            }
+          }
+        }
+      }
+      function wLoop() {
+        if (!wRun) return;
+        wT += 1 / 22;
+        wData.push(genEAR(wT));
+        if (wData.length > 400) wData.shift();
+        drawWave();
+        wId = setTimeout(wLoop, 40);
+      }
+      function togWave() {
+        wRun = !wRun;
+        const b = document.getElementById("wavePlayBtn");
+        b.textContent = wRun ? "Pause" : "Play";
+        b.classList.toggle("on", wRun);
+        if (wRun) wLoop();
+      }
+      function rstWave() {
+        wData = [];
+        wT = 0;
+        if (!wRun) drawWave();
+      }
+      function stopWave() {
+        wRun = false;
+        if (wId) {
+          clearTimeout(wId);
+          wId = null;
+        }
+      }
+
+      /* === RISK TIMELINE SIM === */
+      let riskScore = 0,
+        riskData = [],
+        riskRunning = false,
+        riskId = null;
+      function startRiskSim() {
+        if (riskRunning) return;
+        riskRunning = true;
+        riskLoop();
+      }
+      function riskLoop() {
+        if (!riskRunning) return;
+        riskScore = Math.max(0, riskScore - 1.0);
+        riskData.push(riskScore);
+        if (riskData.length > 300) riskData.shift();
+        drawRisk();
+        riskId = requestAnimationFrame(() => setTimeout(riskLoop, 50));
+      }
+      function riskAction(type) {
+        if (type === "blink") {
+          /* tiny bump */ riskScore = Math.min(100, riskScore + 3);
+        } else if (type === "yawn") {
+          riskScore = Math.min(100, riskScore + 25);
+        } else if (type === "nod") {
+          riskScore = Math.min(100, riskScore + 30);
+        } else if (type === "micro") {
+          riskScore = 100;
+        } else if (type === "reset") {
+          riskScore = 0;
+          riskData = [];
+        }
+      }
+      function drawRisk() {
+        const c = document.getElementById("riskCanvas");
+        if (!c) return;
+        const ctx = c.getContext("2d"),
+          W = c.width,
+          H = c.height;
+        const m = { t: 20, b: 20, l: 45, r: 10 },
+          pW = W - m.l - m.r,
+          pH = H - m.t - m.b;
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = "#fafafa";
+        ctx.fillRect(m.l, m.t, pW, pH);
+        // Grid
+        ctx.strokeStyle = "#e8e8ed";
+        ctx.lineWidth = 0.5;
+        for (let v = 0; v <= 100; v += 25) {
+          const py = m.t + pH - (v / 100) * pH;
+          ctx.beginPath();
+          ctx.moveTo(m.l, py);
+          ctx.lineTo(W - m.r, py);
+          ctx.stroke();
+          ctx.fillStyle = "#94a3b8";
+          ctx.font = '600 11px "JetBrains Mono"';
+          ctx.fillText(v, 4, py + 4);
+        }
+        // Thresholds
+        const y50 = m.t + pH - (50 / 100) * pH,
+          y85 = m.t + pH - (85 / 100) * pH;
+        ctx.setLineDash([8, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.moveTo(m.l, y50);
+        ctx.lineTo(W - m.r, y50);
+        ctx.stroke();
+        ctx.strokeStyle = "#ef4444";
+        ctx.beginPath();
+        ctx.moveTo(m.l, y85);
+        ctx.lineTo(W - m.r, y85);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Labels
+        ctx.font = '600 11px "Be Vietnam Pro"';
+        ctx.fillStyle = "#f59e0b";
+        ctx.fillText("SUSPECTED (50)", m.l + 4, y50 - 4);
+        ctx.fillStyle = "#ef4444";
+        ctx.fillText("CONFIRMED (85)", m.l + 4, y85 - 4);
+        // Danger zones
+        ctx.fillStyle = "rgba(239,68,68,.05)";
+        ctx.fillRect(m.l, m.t, pW, y85 - m.t);
+        ctx.fillStyle = "rgba(245,158,11,.04)";
+        ctx.fillRect(m.l, y85, pW, y50 - y85);
+        // Line
+        if (riskData.length > 1) {
+          const max = 300;
+          const si = Math.max(0, riskData.length - max),
+            vis = riskData.slice(si);
+          ctx.beginPath();
+          ctx.lineWidth = 2.5;
+          vis.forEach((v, i) => {
+            const x = m.l + (i / max) * pW,
+              y = m.t + pH - (v / 100) * pH;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          });
+          // Gradient stroke
+          const grad = ctx.createLinearGradient(0, m.t, 0, m.t + pH);
+          grad.addColorStop(0, "#ef4444");
+          grad.addColorStop(0.15, "#f59e0b");
+          grad.addColorStop(0.5, "#22c55e");
+          grad.addColorStop(1, "#22c55e");
+          ctx.strokeStyle = grad;
+          ctx.stroke();
+          // Current dot
+          const lv = vis[vis.length - 1],
+            lx = m.l + ((vis.length - 1) / max) * pW,
+            ly = m.t + pH - (lv / 100) * pH;
+          const dotColor =
+            lv >= 85 ? "#ef4444" : lv >= 50 ? "#f59e0b" : "#22c55e";
+          ctx.beginPath();
+          ctx.arc(lx, ly, 6, 0, Math.PI * 2);
+          ctx.fillStyle = dotColor;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(lx, ly, 10, 0, Math.PI * 2);
+          ctx.strokeStyle = dotColor;
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = 0.3;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        // Status
+        const st = document.getElementById("riskStatus");
+        if (st) {
+          const r = Math.round(riskScore);
+          if (r >= 85) {
+            st.textContent = `🔴 NGỦ GẬT! (CONFIRMED) — Risk: ${r}/100`;
+            st.style.color = "var(--red)";
+          } else if (r >= 50) {
+            st.textContent = `🟠 BUỒN NGỦ (SUSPECTED) — Risk: ${r}/100`;
+            st.style.color = "var(--orange)";
+          } else if (r > 0) {
+            st.textContent = `🟡 Đang theo dõi — Risk: ${r}/100`;
+            st.style.color = "#d97706";
+          } else {
+            st.textContent = `🟢 TỈNH TÁO — Risk: ${r}/100`;
+            st.style.color = "var(--green)";
+          }
+        }
+      }
+
+      /* === PIPELINE === */
+      const pipeData = [
+        "<strong>Bước 1: Camera</strong><br>Đọc frame từ webcam (960×720), flip ngang (mirror) để hiển thị tự nhiên.<br><code>frame = cv2.flip(cap.read(), 1)</code>",
+        "<strong>Bước 2: CLAHE</strong><br>Grayscale → CLAHE (Contrast Limited Adaptive Histogram Equalization) → RGB.<br>Cải thiện độ tương phản trong điều kiện ánh sáng yếu hoặc không đều.",
+        "<strong>Bước 3: FaceMesh</strong><br>MediaPipe FaceMesh trả về 478 landmark cho mỗi khuôn mặt (tối đa 4).<br>Chọn tài xế: mặt <strong>lớn nhất</strong> ở <strong>nửa trái</strong> khung hình.",
+        "<strong>Bước 4: Metrics</strong><br>Tính toán từ landmark:<br>• EAR = tỷ lệ mắt (6 điểm/mắt) — <strong>tự hiệu chỉnh ngưỡng</strong><br>• MAR = tỷ lệ miệng (4 điểm)<br>• PERCLOS = % nhắm mắt trong 90 frame<br>• Pitch/Yaw/Roll = cv2.solvePnP (6 điểm 3D)",
+        '<strong>Bước 5: Risk Engine</strong><br>Đánh giá trạng thái với <strong>máy trạng thái tích lũy rủi ro</strong>:<br>• EAR &lt; thresh × 30 frame (~1.0s) → <strong style="color:var(--red)">Risk = 100</strong> (microsleep)<br>• MAR &gt; 0.60 × 30 frame → <strong>+25 risk</strong> (ngáp)<br>• PERCLOS &gt; 30% → <strong>+2.0 risk/frame</strong><br>• Gật gù + mắt nhắm → <strong>+30 risk</strong><br>• <strong>Decay −1.0/frame</strong> luôn hoạt động<br>• <strong>Veto Rules</strong>: ngước/quay đầu → tắt EAR penalty',
+        '<strong>Bước 6: Alert</strong><br>• Risk ≥ 50 → <strong style="color:var(--orange)">Cảnh báo sớm</strong> (LED cam)<br>• Risk ≥ 85 → <strong style="color:var(--red)">Xác nhận buồn ngủ</strong> (LED đỏ + audio)<br>• Phát WAV async, cooldown 5 giây chống spam<br>• Cập nhật LED, log panel, vẽ Face Mesh lên GUI',
+      ];
+      function showPipe(i) {
+        document.querySelectorAll("#pipeline .pipe-step").forEach((s, j) => {
+          s.classList.toggle("on", j === i);
+        });
+        document.getElementById("pipeInfo").innerHTML = pipeData[i];
+      }
+
+      /* === SLIDE HOOKS === */
+      function onEnter(i) {
+        if (i === 1) setTimeout(animCounters, 450);
+        if (i === 5)
+          setTimeout(() => {
+            drawEye();
+            drawMouth();
+          }, 100);
+        if (i === 6) {
+          setTimeout(() => {
+            const wc = document.getElementById("waveCanvas");
+            if (wc && wc.parentElement) {
+              const w = wc.parentElement.clientWidth - 32;
+              if (w > 100) {
+                wc.width = w;
+                wc.height = Math.round(w * 0.46);
+              }
+            }
+            if (!wRun) {
+              wRun = true;
+              wLoop();
+              document.getElementById("wavePlayBtn").textContent = "Pause";
+              document.getElementById("wavePlayBtn").classList.add("on");
+            }
+            drawWave();
+          }, 480);
+        }
+        if (i !== 6 && wRun) stopWave();
+        if (i === 8) {
+          setTimeout(() => {
+            const rc = document.getElementById("riskCanvas");
+            if (rc && rc.parentElement) {
+              const w = rc.parentElement.clientWidth;
+              if (w > 100) {
+                rc.width = w;
+                rc.height = Math.max(280, Math.round(w * 0.38));
+              }
+            }
+            if (!riskRunning) startRiskSim();
+            drawRisk();
+          }, 300);
+        }
+        if (i !== 8 && riskRunning) {
+          riskRunning = false;
+          if (riskId) {
+            cancelAnimationFrame(riskId);
+            riskId = null;
+          }
+        }
+      }
+
+      /* === INIT === */
+      renderFormulas();
+      onEnter(0);
+    </script>
+  </body>
+</html>

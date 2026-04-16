@@ -1,6 +1,6 @@
 # Anti-Sleepy Driver — Hệ thống Phát hiện Buồn ngủ cho Tài xế
 
-> Hệ thống giám sát tài xế thời gian thực sử dụng camera, kết hợp phân tích **tỷ lệ mắt (EAR)**, **tỷ lệ miệng (MAR)**, **góc nghiêng đầu (Pitch)** và **nhận dạng khuôn mặt chủ xe** để phát hiện các dấu hiệu buồn ngủ và cảnh báo bằng âm thanh.
+> Hệ thống giám sát tài xế thời gian thực sử dụng camera, kết hợp phân tích **tỷ lệ mắt (EAR)**, **tỷ lệ miệng (MAR)**, **góc nghiêng đầu (Pitch/Yaw)** và **máy trạng thái tích lũy rủi ro (Risk-Based State Machine)** để phát hiện các dấu hiệu buồn ngủ và cảnh báo bằng âm thanh.
 
 **Môn học**: IVP501 — Xử lý ảnh và Thị giác máy tính
 
@@ -14,10 +14,12 @@
 - [Công nghệ sử dụng](#công-nghệ-sử-dụng)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Luồng hoạt động](#luồng-hoạt-động)
+- [Máy trạng thái tích lũy rủi ro](#máy-trạng-thái-tích-lũy-rủi-ro)
 - [Chi tiết các module](#chi-tiết-các-module)
 - [Cài đặt và khởi chạy](#cài-đặt-và-khởi-chạy)
 - [File âm thanh](#file-âm-thanh)
 - [Cấu hình](#cấu-hình)
+- [Cơ chế chống báo sai](#cơ-chế-chống-báo-sai)
 - [Xử lý sự cố](#xử-lý-sự-cố)
 - [Hạn chế đã biết](#hạn-chế-đã-biết)
 - [Tài liệu tham khảo](#tài-liệu-tham-khảo)
@@ -28,22 +30,24 @@
 
 | Tính năng | Mô tả |
 |---|---|
-| **Phát hiện buồn ngủ** | Theo dõi EAR (mắt), MAR (miệng), Pitch (đầu) theo thời gian thực |
-| **Nhận dạng chủ xe** | Kết hợp Landmark Signature + Spatial Histogram để nhận diện tài xế đã đăng ký |
-| **Cảnh báo âm thanh** | 13 file WAV tự động phát theo từng tình huống (buồn ngủ, ngáp, người lạ, ...) |
-| **Đăng ký khuôn mặt** | Quy trình 5 bước có hướng dẫn bằng giọng nói |
-|   **Face Mesh Overlay** | Vẽ viền mặt, mắt, mũi, môi, iris trực tiếp lên camera feed |
-|   **Tự nhận kính râm** | Phát hiện landmark bị "đóng băng" bằng phân tích phương sai EAR |
-|   **Đa khuôn mặt** | Hỗ trợ tới 4 khuôn mặt, tự động chọn vị trí tài xế (nửa trái) |
-|   **Hysteresis** | Chống nhảy trạng thái — cần nhiều frame liên tục mới kích hoạt/tắt cảnh báo |
-|   **LED ảo** | Widget LED animated (9 trạng thái) phản ánh trạng thái hệ thống |
-|   **Log sự kiện** | Panel log có mã màu, chỉ hiển thị sự kiện quan trọng |
+| **Tự hiệu chỉnh (Plug & Play)** | Không cần đăng ký khuôn mặt — hệ thống tự động hiệu chỉnh ngưỡng EAR và tư thế đầu ngay khi bắt đầu sử dụng |
+| **Máy trạng thái tích lũy rủi ro** | Điểm risk tích lũy từ nhiều tín hiệu (EAR, MAR, PERCLOS, Head Pose) — phân biệt cảnh báo sớm (cam) và xác nhận ngủ gật (đỏ) |
+| **Phát hiện microsleep** | Nhắm mắt > 0.5 giây → cảnh báo; nhắm mắt > 1.0 giây → báo động đỏ ngay lập tức |
+| **Phát hiện ngáp** | Phân biệt ngáp thật (há miệng to > 1 giây liên tục) với cười/hát (ngắt quãng, biên độ nhỏ) |
+| **PERCLOS (Percentage of Eye Closure)** | Theo dõi tỷ lệ nhắm mắt trong cửa sổ 3 giây — phát hiện buồn ngủ mãn tính không dùng ngưỡng cứng |
+| **Phát hiện gật gù thông minh** | Chỉ cảnh báo khi gục đầu kèm theo mắt nhắm hoặc PERCLOS cao — không báo sai khi phanh gấp/cúi nhìn GPS |
+| **Chống báo sai khi ngước đầu** | Veto Rule: khi ngước lên > 25° hoặc quay đầu > 30°, bỏ qua EAR thấp do biến dạng góc nhìn camera |
+| **Tự nhận kính râm** | Phát hiện landmark bị "đóng băng" bằng phân tích phương sai EAR |
+| **Đa khuôn mặt** | Hỗ trợ tới 4 khuôn mặt, tự động chọn vị trí tài xế (nửa trái khung hình) |
+| **Face Mesh Overlay** | Vẽ viền mặt, mắt, mũi, môi, iris trực tiếp lên camera feed |
+| **Cảnh báo âm thanh** | File WAV tự động phát theo từng tình huống (buồn ngủ, ngáp, ...) |
+| **LED ảo** | Widget LED animated (9 trạng thái) phản ánh trạng thái hệ thống |
+| **Log sự kiện** | Panel log có mã màu, chỉ hiển thị sự kiện quan trọng |
+| **Risk tự phục hồi** | Decay luôn hoạt động (1.0 điểm/frame) — risk trở về 0 ngay khi tài xế tỉnh táo lại |
 
 ---
 
 ## Demo giao diện
-
->  Ảnh demo sẽ được cập nhật sau khi hoàn tất testing.
 
 **Layout giao diện:**
 
@@ -55,15 +59,18 @@
 │         ┌──────────┐               ┌──────────┐        │
 │         │ TAI XE   │               │HANH KHACH│        │
 │         └──────────┘               └──────────┘        │
+│  EAR:0.28 MAR:0.02                                     │
 │                                                         │
+│  STATUS: TINH TAO (AWAKE) | RISK: 0/100                │
+│  DEBUG: E:0 Y:0 Th:0.20 N:0                            │
 ├─────────────────────────────────────────────────────────┤
-│ ● LED │ Dang ky │ Owner: DA DANG KY │ Nhan dang: CHU XE│
-│        │         │ Mode: BINH THUONG │ EAR:0.28 MAR:0.02│
+│ ● LED │ Mode: BINH THUONG │ EAR:0.28 MAR:0.02          │
 ├─────────────────────────────────────────────────────────┤
 │ ┌─ Nhat ky su kien ──────────────────────────────────┐  │
-│ │ [09:04:19] Nhan dang: CHU XE                       │  │
-│ │ [09:04:27] CANH BAO: NGU GAT! (DROWSY)             │  │
-│ │ [09:04:28] Binh thuong tro lai                     │  │
+│ │ [10:52:26] CANH BAO: DANG NGAP (YAWNING)          │  │
+│ │ [10:52:27] Binh thuong tro lai                     │  │
+│ │ [10:53:05] CANH BAO: NGU GAT! (CONFIRMED)         │  │
+│ │ [10:53:13] Binh thuong tro lai                     │  │
 │ └────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -84,24 +91,23 @@ Dự án được tổ chức theo kiến trúc **Clean Architecture** với 3 t
 │  │   app.py     │  │  │   detector.py        │  │
 │  │  (Tkinter)   │──┼──│  (MediaPipe + CV)    │  │
 │  ├──────────────┤  │  ├──────────────────────┤  │
-│  │register_flow │  │  │   face_id.py         │  │
-│  │  (Đăng ký)   │  │  │  (Nhận dạng mặt)    │  │
-│  ├──────────────┤  │  ├──────────────────────┤  │
-│  │ led_widget   │  │  │   audio.py           │  │
-│  │  (LED ảo)    │  │  │  (Phát âm thanh)     │  │
+│  │ led_widget   │  │  │   face_id.py         │  │
+│  │  (LED ảo)    │  │  │  (Nhận dạng mặt)     │  │
 │  └──────────────┘  │  ├──────────────────────┤  │
-│                    │  │   profile.py          │  │
-│                    │  │  (Lưu/đọc JSON)      │  │
+│                    │  │   audio.py           │  │
+│                    │  │  (Phát âm thanh)      │  │
 │                    │  └──────────────────────┘  │
 ├────────────────────┴────────────────────────────┤
 │                  config.py                      │  ← Cấu hình tập trung
+│     (DetectorConfig + DriverState + AlertLevel) │
 └─────────────────────────────────────────────────┘
 ```
 
 **Nguyên tắc thiết kế:**
 - **Core Layer** không phụ thuộc vào UI — có thể test độc lập hoặc thay Tkinter bằng framework khác.
-- **UI Layer** chỉ gọi Core qua interface đơn giản (`process_frame()`, `feed_frame()`).
+- **UI Layer** chỉ gọi Core qua interface đơn giản (`process_frame()`).
 - **Config** tập trung tại 1 file duy nhất, dễ điều chỉnh.
+- **Plug & Play** — không cần đăng ký, hệ thống tự hiệu chỉnh ngưỡng theo hình dạng khuôn mặt.
 
 ---
 
@@ -128,12 +134,6 @@ Dự án được tổ chức theo kiến trúc **Clean Architecture** với 3 t
 | Đa khuôn mặt | ✅ Tối đa 4 | ❌ Xử lý từng mặt | ✅ |
 | Iris tracking | ✅ | ❌ | ❌ |
 
-### Tại sao dùng Tkinter thay vì PyQt/Web?
-
-- **Không cần cài đặt thêm** — Tkinter đi kèm Python.
-- **Nhẹ** — Phù hợp với hệ thống nhúng/laptop cấu hình thấp.
-- **Đủ tính năng** — Hiển thị video real-time, nút bấm, log panel, LED ảo.
-
 ### Các công thức toán học cốt lõi
 
 **Eye Aspect Ratio (EAR):**
@@ -145,7 +145,7 @@ Dự án được tổ chức theo kiến trúc **Clean Architecture** với 3 t
 
   Trong đó p1..p6 là 6 landmark quanh mắt.
   Mắt mở: EAR ≈ 0.25–0.35
-  Mắt nhắm: EAR < 0.20
+  Mắt nhắm: EAR < 0.20 (tự hiệu chỉnh = 60% của EAR mở tối đa)
 ```
 
 **Mouth Aspect Ratio (MAR):**
@@ -155,8 +155,9 @@ Dự án được tổ chức theo kiến trúc **Clean Architecture** với 3 t
   MAR = ─────────────────
          ‖left - right‖
 
-  Miệng khép: MAR ≈ 0.0–0.1
-  Đang ngáp: MAR > 0.45
+  Miệng khép: MAR ≈ 0.0–0.3
+  Đang ngáp: MAR > 0.60 (liên tục ≥ 1.0 giây)
+  Cười/Hát: MAR có thể > 0.60 nhưng không liên tục → không tính là ngáp
 ```
 
 **Head Pose Estimation:**
@@ -168,6 +169,18 @@ Dự án được tổ chức theo kiến trúc **Clean Architecture** với 3 t
     - Khóe mắt trái/phải (-225/225, 170, -135)
     - Khóe miệng trái/phải (-150/150, -150, -125)
   → Tính rotation matrix → trích xuất Pitch, Yaw, Roll (độ)
+  → Sử dụng moving average để chống nhiễu tư thế
+```
+
+**PERCLOS (Percentage of Eye Closure):**
+
+```
+                  Số frame nhắm mắt (trong 90 frame gần nhất)
+  PERCLOS = ────────────────────────────────────────────────────
+                                   90
+
+  Ngưỡng: 30% (bình thường chớp mắt ≈ 15%)
+  Penalty: +2.0 risk/frame khi vượt ngưỡng
 ```
 
 ---
@@ -178,20 +191,18 @@ Dự án được tổ chức theo kiến trúc **Clean Architecture** với 3 t
 anti_sleepy_driver/
 ├── anti_sleepy/                    # Package chính
 │   ├── main.py                     # Entry point — quét camera, khởi tạo hệ thống
-│   ├── config.py                   # Cấu hình tập trung (ngưỡng, resolution, ...)
+│   ├── config.py                   # Cấu hình tập trung (ngưỡng, state machine, risk)
 │   ├── requirements.txt            # Danh sách thư viện cần cài
 │   │
 │   ├── core/                       # Tầng logic nghiệp vụ
 │   │   ├── __init__.py
-│   │   ├── detector.py             # Phát hiện buồn ngủ (EAR, MAR, Pitch, FaceMesh)
-│   │   ├── face_id.py              # Nhận dạng chủ xe (Landmark + Histogram)
-│   │   ├── audio.py                # Phát âm thanh async (winsound)
-│   │   └── profile.py              # Đọc/ghi/xóa profile chủ xe (JSON)
+│   │   ├── detector.py             # Phát hiện buồn ngủ (EAR, MAR, PERCLOS, Head Pose, Risk)
+│   │   ├── face_id.py              # Nhận dạng khuôn mặt (Landmark + Histogram)
+│   │   └── audio.py                # Phát âm thanh async (winsound)
 │   │
 │   ├── ui/                         # Tầng giao diện
 │   │   ├── __init__.py
 │   │   ├── app.py                  # Giao diện chính Tkinter
-│   │   ├── register_flow.py        # Luồng đăng ký khuôn mặt 5 bước
 │   │   └── led_widget.py           # Widget LED ảo (animated)
 │   │
 │   └── assets/
@@ -199,19 +210,7 @@ anti_sleepy_driver/
 │           ├── alert_drowsy.wav
 │           ├── alert_yawning.wav
 │           ├── alert_nodding.wav
-│           ├── reg_start.wav
-│           ├── reg_eyes_open.wav
-│           ├── reg_eyes_closed.wav
-│           ├── reg_pitch_cal.wav
-│           ├── reg_success.wav
-│           ├── reg_no_face.wav
-│           ├── reg_remove_glasses.wav
-│           ├── sys_welcome_owner.wav
-│           ├── sys_unknown_driver.wav
-│           └── sys_no_profile.wav
-│
-├── data/                           # Dữ liệu runtime (auto-generated)
-│   └── owner_profile.json          # Profile chủ xe (tạo khi đăng ký)
+│           └── ... (10 file khác)
 │
 ├── .gitignore
 └── README.md
@@ -229,8 +228,7 @@ main.py
   ├── 1. Quét camera khả dụng (0 → camera_scan_limit)
   ├── 2. Mở camera với resolution 960×720
   ├── 3. Khởi tạo DrowsinessDetector (MediaPipe FaceMesh)
-  ├── 4. Load profile chủ xe từ data/owner_profile.json (nếu có)
-  └── 5. Khởi tạo Tkinter GUI → AntiSleepyApp
+  └── 4. Khởi tạo Tkinter GUI → AntiSleepyApp
 ```
 
 ### 2. Vòng lặp xử lý chính (~33 FPS)
@@ -242,68 +240,69 @@ AntiSleepyApp._update()  [gọi lại mỗi 30ms]
   ├── 2. Gửi frame → detector.process_frame()
   │      │
   │      ├── Tiền xử lý: Grayscale → CLAHE → RGB
-  │      ├── MediaPipe FaceMesh → 468 landmarks / khuôn mặt
+  │      ├── MediaPipe FaceMesh → 478 landmarks / khuôn mặt
   │      ├── Chọn khuôn mặt TÀI XẾ (nửa trái, diện tích lớn nhất)
   │      ├── Tính EAR, MAR, Head Pose (Pitch/Yaw/Roll)
+  │      ├── Tự hiệu chỉnh ngưỡng EAR (60% max EAR trong 60 frame)
   │      ├── Đánh giá trạng thái: _evaluate_state()
-  │      │      ├── EAR < threshold (45 frames liên tục) → NGỦ GẬT
-  │      │      ├── MAR > threshold (15 frames liên tục) → ĐANG NGÁP
-  │      │      └── Pitch drop > 20° so với baseline → GẬT GÙ
+  │      │      ├── Thu thập bằng chứng (Evidence Tracking)
+  │      │      ├── Áp dụng Veto Rules (Head Pose distortion)
+  │      │      ├── Tích lũy risk score (penalties + decay)
+  │      │      └── State machine transition
   │      ├── Vẽ Face Mesh (viền mặt, mắt, mũi, môi, iris)
   │      └── Trả frame đã vẽ + dict metrics
   │
-  ├── 3. Nhận dạng chủ xe (nếu có profile)
-  │      ├── Extract face signature (15 khoảng cách landmark chuẩn hóa)
-  │      ├── Extract face histogram (ảnh mặt 128×128 → 4×4 grid × 32 bins = 512D)
-  │      ├── Blend 2 phương pháp theo góc Yaw hiện tại:
-  │      │      nhìn thẳng (<15°) → 60% signature + 40% histogram
-  │      │      hơi nghiêng (15–30°) → 30% signature + 70% histogram
-  │      │      quay mạnh (>30°) → 10% signature + 90% histogram
-  │      └── Majority vote buffer (25 frames) → CHỦ XE / NGƯỜI LẠ
-  │
-  ├── 4. Phát cảnh báo âm thanh (cooldown 5 giây chống spam)
-  ├── 5. Cập nhật LED, labels, log panel
-  └── 6. Chuyển đổi BGR→RGB → PIL Image → Tkinter PhotoImage → hiển thị
+  ├── 3. Phát cảnh báo âm thanh (cooldown chống spam)
+  ├── 4. Cập nhật LED, labels, log panel
+  └── 5. Chuyển đổi BGR→RGB → PIL Image → Tkinter PhotoImage → hiển thị
 ```
 
-### 3. Luồng đăng ký khuôn mặt
+---
+
+## Máy trạng thái tích lũy rủi ro
+
+Thay vì sử dụng ngưỡng cứng kiểu ON/OFF, hệ thống áp dụng kiến trúc **Risk-Based State Machine** — tích lũy điểm rủi ro từ nhiều tín hiệu, cho phép phân biệt giữa hành vi bình thường, cảnh báo sớm và xác nhận buồn ngủ.
+
+### Trạng thái hệ thống (DriverState)
 
 ```
-RegisterFlow.feed_frame()  [5 giai đoạn tuần tự]
-  │
-  ├── Phase 1: FACE_SIG (3 giây)
-  │   └── Thu thập landmark signature (15D) + face histogram (512D)
-  │       Trung bình tất cả mẫu → 1 signature & 1 histogram chuẩn
-  │
-  ├── Phase 2: EAR_OPEN (3 giây)
-  │   └── Đo EAR khi mắt mở bình thường → ear_open_baseline
-  │
-  ├── Phase 3: EAR_CLOSED (3 giây)
-  │   └── Đo EAR khi nhắm mắt → ear_closed_baseline
-  │       → ear_thresh = (ear_open + ear_closed) / 2
-  │
-  ├── Phase 4: PITCH_CAL (2 giây)
-  │   └── Đo góc Pitch chuẩn khi nhìn thẳng → pitch_base
-  │
-  └── Phase 5: SUCCESS
-      └── Tổng hợp profile → lưu data/owner_profile.json
+  NORMAL                 ← Risk = 0, mọi thứ bình thường
+    │
+    ├── DISTRACTED       ← Yaw > 30° (nhìn sang bên)
+    ├── HEAD_DOWN        ← Pitch drop > 30° + mắt nhắm
+    ├── YAWN_CANDIDATE   ← MAR > 0.60 liên tục > 0.8 giây
+    │
+    ├── SUSPECTED (Cam)  ← Risk ≥ 50 → Cảnh báo sớm
+    └── CONFIRMED (Đỏ)   ← Risk ≥ 85 → Báo động buồn ngủ!
 ```
 
-**Dữ liệu profile được lưu:**
+### Bảng tín hiệu và điểm phạt
 
-```json
-{
-    "registered_at": "2026-04-09T09:04:17",
-    "face_signature": [15 số thực],
-    "face_histogram": [512 số thực],
-    "ear_open_baseline": 0.276,
-    "ear_closed_baseline": 0.151,
-    "ear_thresh": 0.213,
-    "mar_baseline": 0.005,
-    "mar_thresh": 0.450,
-    "pitch_base": -164.538,
-    "sunglasses_ear_cutoff": 0.15
-}
+| Tín hiệu | Điều kiện | Điểm risk cộng thêm | Ghi chú |
+|---|---|---|---|
+| **Nhắm mắt bất thường** | EAR < threshold liên tục 15 frame (~0.5s) | +25.0 (1 lần) | Bị chặn nếu đang ngáp hoặc đầu ngước lên |
+| **Microsleep (Hard Rule)** | EAR < threshold liên tục 30 frame (~1.0s) | → Risk = 100 ngay | Không cần tích lũy, báo động tức thì |
+| **Ngáp** | MAR > 0.60 liên tục 30 frame (~1.0s) | +25.0 (1 lần) | Không tính nếu há miệng ngắt quãng (hát/cười) |
+| **Gật gù** | Pitch drop > 30° + mắt nhắm/PERCLOS cao | +30.0 (1 lần sau 0.5s) | Mắt phải nhắm — mở mắt cúi đầu = phanh gấp, bỏ qua |
+| **PERCLOS > 30%** | > 30% thời gian nhắm mắt trong 3 giây | +2.0/frame | Phát hiện buồn ngủ mãn tính dạng lờ đờ |
+| **Decay (phục hồi)** | Luôn luôn hoạt động | −1.0/frame | Risk tự trôi về 0 khi tài xế tỉnh táo |
+
+### Dòng thời gian minh họa
+
+```
+  Risk
+  100 ┤                        ████████  ← CONFIRMED (≥85)
+      │                      ██
+   85 ┤- - - - - - - - - - ██ - - - - -  ← Ngưỡng xác nhận
+      │                  ██
+   50 ┤- - - - - - - - ██  - - - - - - -  ← Ngưỡng cảnh báo sớm
+      │             ████
+   25 ┤     ████████                       ← Ngáp 1 cái (+25)
+      │   ██      ↗ decay trừ dần
+    0 ┤███                 ███████████     ← Tỉnh táo, risk = 0
+      └──────────────────────────────────→ Thời gian (frames)
+       Bình      Ngáp   Lờ đờ  Microsleep
+       thường                    (Hard Rule)
 ```
 
 ---
@@ -315,126 +314,105 @@ RegisterFlow.feed_frame()  [5 giai đoạn tuần tự]
 | Hàm | Mô tả |
 |---|---|
 | `select_camera(scan_limit)` | Quét các camera ID từ 0 đến `scan_limit`, tự động chọn nếu chỉ có 1 camera |
-| `main()` | Khởi tạo config → quét camera → tạo detector → load profile → tạo GUI |
+| `main()` | Khởi tạo config → quét camera → tạo detector → tạo GUI |
 
 ---
 
 ### `config.py` — Cấu hình tập trung
 
-Dataclass `DetectorConfig` chứa tất cả tham số có thể điều chỉnh:
+Chứa 3 class: `DriverState` (enum trạng thái), `AlertLevel` (enum mức cảnh báo), và `DetectorConfig` (dataclass tham số).
 
-| Tham số | Mặc định | Ý nghĩa |
-|---|---|---|
-| `ear_thresh` | 0.20 | Ngưỡng EAR — dưới giá trị này coi là nhắm mắt |
-| `ear_consec_frames` | 45 | Số frame liên tục EAR thấp để kích hoạt cảnh báo (~1.5 giây ở 30 FPS) |
-| `ear_recovery_frames` | 15 | Số frame EAR bình thường liên tục để tắt cảnh báo (~0.5 giây) |
-| `mar_thresh` | 0.45 | Ngưỡng MAR — trên giá trị này coi là đang ngáp |
-| `mar_consec_frames` | 15 | Số frame liên tục MAR cao để kích hoạt cảnh báo ngáp |
-| `mar_recovery_frames` | 10 | Số frame MAR bình thường liên tục để tắt cảnh báo ngáp |
-| `pitch_drop_thresh` | 20.0 | Độ nghiêng đầu (°) so với baseline để coi là gật gù |
-| `max_num_faces` | 4 | Số khuôn mặt tối đa MediaPipe theo dõi đồng thời |
-| `frame_width` | 960 | Chiều rộng khung hình camera (pixel) |
-| `frame_height` | 720 | Chiều cao khung hình camera (pixel) |
-| `clahe_clip_limit` | 2.0 | Giới hạn contrast của CLAHE (tiền xử lý ảnh) |
-| `bbox_padding` | 10 | Khoảng đệm (pixel) xung quanh bounding box khuôn mặt |
-| `driver_zone_ratio` | 0.5 | Tỷ lệ chiều rộng màn hình coi là vùng tài xế (nửa trái) |
+#### Bảng tham số DetectorConfig đầy đủ
+
+| Nhóm | Tham số | Mặc định | Ý nghĩa |
+|---|---|---|---|
+| **Mắt** | `ear_thresh` | 0.20 | Ngưỡng EAR ban đầu (sẽ được tự hiệu chỉnh) |
+| | `ear_consec_frames` | 30 | Hard rule: 1.0s nhắm mắt = Risk tối đa ngay lập tức |
+| | `ear_recovery_frames` | 15 | Số frame EAR bình thường để reset bộ đếm (~0.5s) |
+| | `abnormal_blink_frames` | 15 | Ngưỡng chớp mắt dài bất thường (~0.5s) |
+| **Miệng** | `mar_thresh` | 0.60 | Ngưỡng MAR — trên giá trị này coi là đang ngáp |
+| | `mar_consec_frames` | 30 | Phải há miệng liên tục 1.0 giây mới tính ngáp |
+| | `mar_recovery_frames` | 3 | Khép miệng 0.1 giây = reset bộ đếm (chống nhầm hát/cười) |
+| **Đầu** | `pitch_drop_thresh` | 30.0 | Độ gục đầu (°) so với baseline để coi là gật gù |
+| | `yaw_distraction_thresh` | 30.0 | Góc quay ngang (°) để coi là xao lãng |
+| **PERCLOS** | `perclos_window_frames` | 90 | Cửa sổ theo dõi PERCLOS (~3 giây ở 30 FPS) |
+| | `perclos_thresh` | 0.30 | Tỷ lệ nhắm mắt > 30% = buồn ngủ mãn tính |
+| **Risk** | `risk_max` | 100.0 | Điểm risk tối đa |
+| | `risk_decay_rate` | 1.0 | Tốc độ phục hồi (trừ mỗi frame, luôn hoạt động) |
+| | `risk_suspected_thresh` | 50.0 | Ngưỡng cảnh báo sớm (cam) |
+| | `risk_confirmed_thresh` | 85.0 | Ngưỡng xác nhận buồn ngủ (đỏ) |
+| | `risk_penalty_blink_long` | 25.0 | Điểm phạt khi nhắm mắt bất thường > 0.5s |
+| | `risk_penalty_nodding` | 30.0 | Điểm phạt khi gật gù kèm mắt nhắm |
+| | `risk_penalty_yawn` | 25.0 | Điểm phạt khi ngáp dài > 1.0s |
+| | `risk_penalty_perclos` | 2.0 | Điểm phạt mỗi frame khi PERCLOS cao |
+| **Camera** | `frame_width` | 960 | Chiều rộng khung hình (pixel) |
+| | `frame_height` | 720 | Chiều cao khung hình (pixel) |
+| | `max_num_faces` | 4 | Số khuôn mặt tối đa MediaPipe theo dõi |
+| | `driver_zone_ratio` | 0.5 | Tỷ lệ chiều rộng màn hình coi là vùng tài xế |
+| **Tiền xử lý** | `clahe_clip_limit` | 2.0 | Giới hạn contrast CLAHE |
+| | `clahe_tile_grid_size` | (8, 8) | Kích thước lưới CLAHE |
+| | `bbox_padding` | 10 | Khoảng đệm bounding box |
 
 ---
 
 ### `core/detector.py` — Phát hiện buồn ngủ
 
-Module cốt lõi xử lý từng frame camera.
+Module cốt lõi xử lý từng frame camera. Đây là trái tim của hệ thống.
 
 | Hàm | Mô tả |
 |---|---|
-| `__init__(config)` | Khởi tạo MediaPipe FaceMesh, CLAHE, bộ đếm hysteresis |
-| `load_owner_profile(profile)` | Ghi đè ngưỡng EAR/MAR/Pitch từ profile đã đăng ký |
+| `__init__(config)` | Khởi tạo MediaPipe FaceMesh, CLAHE, bộ đếm risk, PERCLOS buffer |
 | `preprocess_image(frame)` | Grayscale → CLAHE histogram equalization → RGB |
 | `get_ear(landmarks, indices)` | Tính Eye Aspect Ratio từ 6 landmark quanh mắt |
 | `get_mar(landmarks)` | Tính Mouth Aspect Ratio từ 4 landmark quanh miệng |
 | `get_head_pose(landmarks, w, h)` | Ước lượng Pitch/Yaw/Roll bằng `cv2.solvePnP` + mô hình 6 điểm 3D |
 | `_extract_faces(results, w, h)` | Trích xuất danh sách khuôn mặt (landmarks, bbox, area, center_x) |
-| `_choose_driver_index(faces, w)` | Chọn tài xế: khuôn mặt có diện tích lớn nhất ở nửa trái khung hình |
-| `_draw_face_mesh(frame, landmarks, is_alert)` | Vẽ đường viền: oval (36 pts), mắt (16 pts/mắt), mũi (6 pts), môi (20 pts), iris |
-| `_evaluate_state(ear, mar, pitch)` | Đánh giá trạng thái buồn ngủ với **cơ chế hysteresis** |
-| `process_frame(frame)` | Pipeline chính: tiền xử lý → detect → tính metrics → vẽ → trả kết quả |
+| `_choose_driver_index(faces, w)` | Chọn tài xế: khuôn mặt có diện tích lớn nhất ở nửa trái |
+| `_draw_face_mesh(frame, landmarks, is_alert)` | Vẽ đường viền: oval, mắt, mũi, môi, iris |
+| `_evaluate_state(ear, mar, pitch, yaw)` | **Hàm chính**: tích lũy risk, áp dụng veto rules, chuyển trạng thái |
+| `process_frame(frame)` | Pipeline chính: tiền xử lý → detect → metrics → risk → vẽ → trả kết quả |
+| `close()` | Giải phóng MediaPipe FaceMesh |
 
-**Cơ chế Hysteresis (chống nhảy trạng thái):**
+#### Cơ chế tự hiệu chỉnh EAR
 
 ```
-  Trạng thái bình thường          Kích hoạt cảnh báo
-         ──────────────────────────────────────>
-         Cần 45 frame liên tục EAR < threshold
+  Hệ thống theo dõi EAR tối đa trong cửa sổ 60 frame gần nhất:
+  → dynamic_ear_open = max(EAR trong 60 frame)
+  → ear_thresh = max(0.12, dynamic_ear_open × 0.60)
 
-         Đang cảnh báo              Tắt cảnh báo
-         ──────────────────────────────────────>
-         Cần 15 frame liên tục EAR > threshold
-
-  → Ngăn hiện tượng flickering khi EAR dao động quanh ngưỡng.
+  Ví dụ: Người mắt to (EAR mở = 0.35) → thresh = 0.21
+         Người mắt híp (EAR mở = 0.22) → thresh = 0.13
+         Đeo kính râm (EAR mở = 0.15) → thresh = 0.12 (sàn an toàn)
 ```
 
 ---
 
 ### `core/face_id.py` — Nhận dạng khuôn mặt
 
-Sử dụng **2 phương pháp kết hợp** để nhận dạng chủ xe:
+Sử dụng **2 phương pháp kết hợp** để nhận dạng:
 
 #### Phương pháp 1: Landmark Signature (15D)
 | Hàm | Mô tả |
 |---|---|
-| `extract_face_signature(landmarks)` | Tính 15 khoảng cách chuẩn hóa giữa các cặp landmark ổn định (trán-cằm, gò má, sống mũi, ...) |
-| `average_signatures(sigs)` | Trung bình nhiều signature → 1 vector chuẩn (dùng khi đăng ký) |
-| `compare_signatures(sig1, sig2)` | So sánh L2 distance → similarity = 1/(1+distance), range [0, 1] |
-
-- Cách hoạt động: MediaPipe FaceMesh trả về 468 điểm đặc trưng trên khuôn mặt. Hệ thống chọn 15 cặp điểm ổn định (trán, cằm, gò má, sống mũi, khóe miệng) rồi tính khoảng cách giữa từng cặp, chuẩn hóa theo chiều rộng khuôn mặt → tạo thành vector 15 số thực.
-- Ưu điểm: Nhanh, nhẹ, không cần model AI riêng.
-- Nhược điểm: Rất nhạy với góc xoay đầu — khi nghiêng đầu, tọa độ 2D của các điểm thay đổi mạnh → khoảng cách bị sai lệch.
+| `extract_face_signature(landmarks)` | Tính 15 khoảng cách chuẩn hóa giữa các cặp landmark ổn định |
+| `compare_signatures(sig1, sig2)` | So sánh L2 distance → similarity [0, 1] |
 
 #### Phương pháp 2: Spatial Histogram (512D)
 | Hàm | Mô tả |
 |---|---|
-| `extract_face_crop(frame, bbox)` | Cắt vùng mặt → resize 128×128 → grayscale → histogram equalize |
-| `compute_face_histogram(crop)` | Chia ảnh thành lưới 4×4, mỗi ô tính histogram 32 bin → vector 512D |
-| `compare_face_histograms(h1, h2)` | So sánh bằng `cv2.compareHist` (HISTCMP_CORREL), range [-1, 1] |
+| `extract_face_crop(frame, bbox)` | Cắt vùng mặt → resize 128×128 → grayscale |
+| `compute_face_histogram(crop)` | Chia 4×4 grid × 32 bins = 512D vector |
+| `compare_face_histograms(h1, h2)` | So sánh bằng `cv2.compareHist` (HISTCMP_CORREL) |
 
-- Cách hoạt động: Cắt vùng mặt từ khung hình ra, resize về 128×128 pixel, chuyển sang grayscale, cân bằng sáng. Sau đó chia ảnh mặt thành lưới 4×4 = 16 ô, mỗi ô tính histogram 32 bin → tạo vector 512 giá trị mô tả phân bố sáng/tối trên từng vùng khuôn mặt.
-- Ưu điểm: Bền vững hơn nhiều khi xoay đầu vì nó ghi nhớ cấu trúc sáng tối tổng thể thay vì vị trí điểm cụ thể.
-- Nhược điểm: Nhạy với thay đổi ánh sáng mạnh (ban ngày/đêm).
-
-#### Hàm kết hợp
-| Hàm | Mô tả |
-|---|---|
-| `is_owner(sig, saved_sig, hist, saved_hist, yaw)` | Blend 2 phương pháp theo góc Yaw, trả về `(is_match: bool, combined_score: float)` |
-
-**Bảng trọng số blend theo góc Yaw:**
-
-| Góc đầu (Yaw) | Signature weight | Histogram weight | Ngưỡng |
-|---|---|---|---|
-| < 15° (nhìn thẳng) | 60% | 40% | 0.55 |
-| 15°–30° (hơi nghiêng) | 30% | 70% | 0.50 |
-| > 30° (quay mạnh) | 10% | 90% | 0.45 |
-
-#### Kết quả mỗi frame (khớp/không khớp) được đẩy vào bộ đệm 25 frames. Chỉ khi >55% frames nói "khớp" mới kết luận CHỦ XE, <30% mới kết luận NGƯỜI LẠ.
 ---
 
 ### `core/audio.py` — Phát âm thanh
 
 | Hàm | Mô tả |
 |---|---|
-| `AudioPlayer.get_instance()` | Singleton pattern — đảm bảo toàn bộ ứng dụng chỉ dùng 1 instance |
-| `play(filename, cooldown, force)` | Phát WAV async qua `winsound.SND_ASYNC`, có cooldown chống phát lặp liên tục |
+| `AudioPlayer.get_instance()` | Singleton pattern — toàn bộ ứng dụng dùng 1 instance |
+| `play(filename, cooldown, force)` | Phát WAV async qua `winsound.SND_ASYNC`, có cooldown chống spam |
 | `stop()` | Dừng âm thanh đang phát bằng `winsound.SND_PURGE` |
-
----
-
-### `core/profile.py` — Lưu trữ Profile
-
-| Hàm | Mô tả |
-|---|---|
-| `profile_exists(path)` | Kiểm tra file `data/owner_profile.json` tồn tại |
-| `save_profile(profile, path)` | Lưu dict → JSON (tự tạo thư mục `data/` nếu chưa có) |
-| `load_profile(path)` | Đọc JSON → dict, trả về `None` nếu file lỗi/không tồn tại |
-| `delete_profile(path)` | Xóa file profile (reset toàn bộ đăng ký) |
 
 ---
 
@@ -442,41 +420,23 @@ Sử dụng **2 phương pháp kết hợp** để nhận dạng chủ xe:
 
 | Hàm | Mô tả |
 |---|---|
-| `__init__(root, cap, detector)` | Khởi tạo UI, load profile, bắt đầu vòng lặp frame |
-| `build_ui()` | Xây dựng layout ngang: Camera → Controls → Log |
-| `_log(message, tag)` | Ghi log có mã màu (alert/success/info/warn) vào panel + terminal |
-| `start_registration()` | Khởi động luồng đăng ký khi bấm nút |
-| `_update()` | Vòng lặp 30ms: đọc frame → process → nhận dạng → cảnh báo → hiển thị |
+| `__init__(root, cap, detector)` | Khởi tạo UI, bắt đầu vòng lặp frame |
+| `build_ui()` | Xây dựng layout: Camera + Controls + Log |
+| `_log(message, tag)` | Ghi log có mã màu (alert/success/info/warn) |
+| `_update()` | Vòng lặp 30ms: đọc frame → process → cảnh báo → hiển thị |
 | `on_closing()` | Giải phóng camera và detector khi đóng cửa sổ |
-
----
-
-### `ui/register_flow.py` — Luồng đăng ký
-
-| Hàm | Mô tả |
-|---|---|
-| `start()` | Reset accumulator, chuyển Phase = FACE_SIG, phát audio hướng dẫn |
-| `cancel()` | Hủy/kết thúc đăng ký, đưa LED về OFF |
-| `feed_frame(landmarks, ear, mar, pitch, hist)` | Xử lý 1 frame: tích lũy dữ liệu theo phase, trả text hướng dẫn |
-| `_compute_profile()` | Tính profile cuối: trung bình signature/histogram, tính ear_thresh, mar_thresh |
-| `_reset_accumulators()` | Xóa toàn bộ buffer (sig_list, ear_open_list, ear_closed_list, pitch_list, histograms) |
 
 ---
 
 ### `ui/led_widget.py` — LED ảo
 
-Widget Tkinter Canvas mô phỏng đèn LED vật lý với 9 trạng thái và hiệu ứng animation:
+Widget Tkinter Canvas mô phỏng đèn LED vật lý:
 
 | Trạng thái | Màu | Hiệu ứng | Ý nghĩa |
 |---|---|---|---|
 | `OFF` | Xám | Tĩnh | Chờ / không hoạt động |
-| `REGISTERING` | Vàng | Nhấp nháy 2Hz | Đang đăng ký |
-| `EAR_OPEN` | Xanh dương | Nhấp nháy 2Hz | Thu thập EAR mắt mở |
-| `EAR_CLOSED` | Cam | Nhấp nháy 2Hz | Thu thập EAR mắt nhắm |
-| `PITCH_CAL` | Tím | Nhấp nháy 2Hz | Hiệu chỉnh góc đầu |
-| `SUCCESS` | Xanh lá | Tĩnh | Đăng ký thành công |
-| `RUNNING_OK` | Xanh lá | Nhịp thở 1Hz | Đang giám sát, nhận diện chủ xe |
-| `RUNNING_UNKNOWN` | Vàng | Nhịp thở 1Hz | Đang giám sát, người lạ |
+| `RUNNING_OK` | Xanh lá | Nhịp thở 1Hz | Đang giám sát, tài xế tỉnh táo |
+| `RUNNING_UNKNOWN` | Vàng | Nhịp thở 1Hz | Đang giám sát, chưa xác định |
 | `ALERT` | Đỏ | Nhấp nháy 5Hz | Cảnh báo buồn ngủ! |
 
 ---
@@ -517,16 +477,10 @@ pip install -r anti_sleepy/requirements.txt
 python anti_sleepy/main.py
 ```
 
-### Bước 5: Đăng ký khuôn mặt
-
-1. Khi app mở lên, bấm nút **"Dang ky"**
-2. Nhìn thẳng vào camera (3 giây) — thu thập đặc trưng khuôn mặt
-3. Mở mắt bình thường (3 giây) — đo EAR baseline
-4. Nhắm mắt lại (3 giây) — đo EAR khi nhắm mắt
-5. Nhìn thẳng phía trước (2 giây) — hiệu chỉnh góc đầu
-6. Hoàn tất! Profile được lưu tự động vào `data/owner_profile.json`
-
-> **Lưu ý**: Để đăng ký lại, bấm nút "Dang ky" khi đã có profile → hệ thống sẽ hỏi xác nhận xóa profile cũ trước khi đăng ký mới.
+Hệ thống sẽ:
+1. Tự động quét và chọn camera
+2. Tự hiệu chỉnh ngưỡng EAR theo hình dạng khuôn mặt trong vài giây đầu tiên
+3. Bắt đầu giám sát ngay lập tức — **không cần đăng ký khuôn mặt**
 
 ---
 
@@ -536,40 +490,92 @@ python anti_sleepy/main.py
 
 | File | Thời điểm phát | Nhóm |
 |---|---|---|
-| `reg_start.wav` | Bắt đầu đăng ký | Đăng ký |
-| `reg_eyes_open.wav` | Chuyển sang giai đoạn đo mắt mở | Đăng ký |
-| `reg_eyes_closed.wav` | Chuyển sang giai đoạn đo mắt nhắm | Đăng ký |
-| `reg_pitch_cal.wav` | Chuyển sang hiệu chỉnh góc đầu | Đăng ký |
-| `reg_success.wav` | Đăng ký thành công | Đăng ký |
-| `reg_no_face.wav` | Không tìm thấy khuôn mặt khi đăng ký | Đăng ký |
-| `reg_remove_glasses.wav` | Phát hiện đeo kính râm | Đăng ký |
-| `alert_drowsy.wav` | Cảnh báo ngủ gật | Cảnh báo |
-| `alert_yawning.wav` | Cảnh báo ngáp | Cảnh báo |
+| `alert_drowsy.wav` | Cảnh báo ngủ gật (risk ≥ 85) | Cảnh báo |
+| `alert_yawning.wav` | Cảnh báo ngáp (MAR > 0.60 >1.0s) | Cảnh báo |
 | `alert_nodding.wav` | Cảnh báo gật gù | Cảnh báo |
 | `sys_welcome_owner.wav` | Nhận diện đúng chủ xe | Hệ thống |
 | `sys_unknown_driver.wav` | Phát hiện người lạ ngồi ghế lái | Hệ thống |
-| `sys_no_profile.wav` | Chưa có profile, cần đăng ký | Hệ thống |
+| `sys_no_profile.wav` | Chưa có profile | Hệ thống |
+| `reg_*.wav` (6 file) | Âm thanh hướng dẫn đăng ký | Đăng ký |
 
 ---
 
 ## Cấu hình
 
-Mọi tham số đều nằm trong `anti_sleepy/config.py`. Chỉnh sửa trực tiếp để tinh chỉnh độ nhạy:
+Mọi tham số đều nằm trong `anti_sleepy/config.py`. Chỉnh sửa trực tiếp để tinh chỉnh:
 
 ```python
 @dataclass
 class DetectorConfig:
-    ear_thresh: float = 0.20          # Hạ xuống → nhạy hơn, dễ báo sai
-    ear_consec_frames: int = 45       # Tăng lên → ít báo sai, phản hồi chậm hơn
-    ear_recovery_frames: int = 15     # Tăng lên → cảnh báo kéo dài hơn
-    mar_thresh: float = 0.45          # Ngưỡng ngáp
-    mar_consec_frames: int = 15       # Số frame liên tục để kích hoạt cảnh báo ngáp
-    pitch_drop_thresh: float = 20.0   # Ngưỡng gật gù (độ)
-    frame_width: int = 960            # Resolution camera
-    frame_height: int = 720
+    # === Ngưỡng mắt ===
+    ear_thresh: float = 0.20          # Tự hiệu chỉnh → 60% max EAR
+    ear_consec_frames: int = 30       # 1.0s nhắm mắt = Microsleep (Hard Rule)
+    abnormal_blink_frames: int = 15   # 0.5s nhắm mắt = Bất thường (+25 risk)
+
+    # === Ngưỡng miệng ===
+    mar_thresh: float = 0.60          # Ngưỡng ngáp (cao hơn cười/hát)
+    mar_consec_frames: int = 30       # 1.0s liên tục mới tính ngáp
+    mar_recovery_frames: int = 3      # 0.1s khép miệng = reset (chống nhầm hát)
+
+    # === Ngưỡng đầu ===
+    pitch_drop_thresh: float = 30.0   # Gật gù (độ)
+    yaw_distraction_thresh: float = 30.0  # Xao lãng (độ)
+
+    # === PERCLOS ===
+    perclos_window_frames: int = 90   # Cửa sổ 3 giây
+    perclos_thresh: float = 0.30      # 30% nhắm mắt = buồn ngủ mãn tính
+
+    # === Risk Engine ===
+    risk_max: float = 100.0
+    risk_decay_rate: float = 1.0      # Luôn hoạt động, tự phục hồi
+    risk_suspected_thresh: float = 50.0   # Cảnh báo sớm (cam)
+    risk_confirmed_thresh: float = 85.0   # Xác nhận buồn ngủ (đỏ)
+    risk_penalty_blink_long: float = 25.0
+    risk_penalty_nodding: float = 30.0
+    risk_penalty_yawn: float = 25.0
+    risk_penalty_perclos: float = 2.0     # Mỗi frame khi PERCLOS cao
 ```
 
-> **Mẹo**: Sau khi đăng ký, các ngưỡng `ear_thresh`, `mar_thresh`, `pitch_base` sẽ được profile cá nhân ghi đè, phù hợp hơn với cấu trúc khuôn mặt riêng của tài xế.
+> **Quan trọng**: Ngưỡng `ear_thresh` sẽ được hệ thống tự hiệu chỉnh theo cấu trúc khuôn mặt thực tế khi chạy. Giá trị trong config chỉ là giá trị khởi tạo ban đầu.
+
+---
+
+## Cơ chế chống báo sai
+
+Hệ thống được trang bị nhiều lớp lọc để giảm thiểu cảnh báo nhầm trong các tình huống lái xe thực tế:
+
+### 1. Veto Rule — Chống nhầm góc đầu
+
+| Tình huống | Vấn đề | Giải pháp |
+|---|---|---|
+| Ngước nhìn biển báo/trần xe | EAR bị ép thấp do góc camera | Pitch < −25° → `eyes_closed = False` |
+| Quay đầu nhìn gương/bên cạnh | EAR bị méo do nghiêng mặt | Yaw > 30° → `eyes_closed = False` |
+
+### 2. Nodding Validation — Chống nhầm phanh gấp
+
+| Hành vi | Pitch drop | Mắt | Kết quả |
+|---|---|---|---|
+| Phanh gấp | ✅ > 30° | Mở to | ❌ Không phạt |
+| Cúi nhìn GPS | ✅ > 30° | Mở to | ❌ Không phạt |
+| Ngủ gật gục đầu | ✅ > 30° | Nhắm | ✅ +30 risk |
+
+### 3. Yawn Hysteresis — Chống nhầm hát/cười
+
+| Hành vi | MAR | Thời gian | Recovery | Kết quả |
+|---|---|---|---|---|
+| Cười ha ha | > 0.60 | < 1.0s | — | ❌ Không phạt |
+| Hát ngân nga | > 0.60 | Ngắt quãng | Reset mỗi 0.1s khi khép miệng | ❌ Không phạt |
+| Ngáp mệt mỏi | > 0.60 | ≥ 1.0s liên tục | Không khép lại | ✅ +25 risk |
+
+### 4. Yawn Eye Suppression — Chống nhầm EAR khi ngáp
+
+Khi người dùng ngáp, mắt tự nhiên nheo lại. Hệ thống tự động tạm ngưng penalty nhắm mắt (`blink_duration`) và loại bỏ khỏi PERCLOS buffer khi MAR > ngưỡng ngáp.
+
+### 5. Risk Decay luôn hoạt động
+
+Risk trừ 1.0 điểm/frame **vô điều kiện** — kể cả khi chớp mắt bình thường. Điều này đảm bảo:
+- Sau khi ngáp 1 cái (+25 risk), risk sẽ tự về 0 trong ~0.8 giây nếu không có tín hiệu buồn ngủ khác
+- Chớp mắt tự nhiên không "khoá" decay lại gây tích lũy oan
 
 ---
 
@@ -577,22 +583,25 @@ class DetectorConfig:
 
 | Vấn đề | Nguyên nhân | Giải pháp |
 |---|---|---|
-| `Khong tim thay camera hoat dong!` | Không có webcam hoặc bị app khác chiếm | Đóng các app đang dùng camera (Zoom, Teams, ...), kiểm tra Device Manager |
-| Cảnh báo liên tục dù đang tỉnh | `ear_thresh` quá cao (>0.25) | Đăng ký lại: bấm "Dang ky", nhắm mắt chặt ở bước 4 |
-| Nhận nhầm người lạ thành chủ xe | Đăng ký khi ánh sáng yếu hoặc góc lệch | Đăng ký lại trong điều kiện ánh sáng tốt, nhìn thẳng camera |
-| App bị lag / giật hình | CPU yếu hoặc resolution quá cao | Giảm `frame_width`/`frame_height` trong `config.py` (ví dụ: 640×480) |
+| `Khong tim thay camera hoat dong!` | Không có webcam hoặc bị app khác chiếm | Đóng các app dùng camera (Zoom, Teams), kiểm tra Device Manager |
+| Cảnh báo liên tục dù tỉnh táo | PERCLOS hoặc EAR threshold chưa phù hợp | Đợi vài giây để hệ thống tự hiệu chỉnh; nếu vẫn sai, tăng `perclos_thresh` |
+| Báo nhầm khi cười/hát | `mar_thresh` quá thấp | Tăng `mar_thresh` hoặc `mar_consec_frames` trong config |
+| Báo nhầm khi phanh gấp/ngước đầu | Veto rule chưa đủ mạnh | Giảm ngưỡng veto (hiện tại: -25° pitch, 30° yaw) |
+| App bị lag / giật hình | CPU yếu hoặc resolution quá cao | Giảm `frame_width`/`frame_height` (ví dụ: 640×480) |
 | `Warning: Audio file not found` | Thiếu file WAV trong thư mục sounds | Đảm bảo đủ 13 file trong `anti_sleepy/assets/sounds/` |
 | MediaPipe không detect được mặt | Ánh sáng quá tối hoặc camera bị che | Tăng `clahe_clip_limit` hoặc cải thiện ánh sáng |
+| Risk tăng dần dù không làm gì | Phiên bản cũ có bug decay bị khoá | Cập nhật lên phiên bản mới nhất (decay luôn hoạt động) |
 
 ---
 
 ## Hạn chế đã biết
 
-- **Chỉ hỗ trợ Windows** — do phụ thuộc vào `winsound` API cho phát âm thanh. Trên macOS/Linux cần thay bằng `playsound` hoặc `pygame.mixer`.
-- **Nhận dạng khuôn mặt chưa hoàn hảo** — phương pháp Landmark + Histogram không bằng deep learning (face_recognition/ArcFace), có thể bị ảnh hưởng bởi thay đổi ánh sáng mạnh hoặc góc quay >45°.
+- **Chỉ hỗ trợ Windows** — do phụ thuộc vào `winsound` API cho phát âm thanh. Trên macOS/Linux cần thay bằng `pygame.mixer` hoặc `sounddevice`.
 - **Phụ thuộc vào MediaPipe** — nếu tay che mặt hoặc đội mũ bảo hiểm che hết mặt, hệ thống không thể phát hiện.
-- **Đơn tài xế** — hệ thống chỉ lưu profile 1 chủ xe. Muốn thay đổi phải đăng ký lại.
-- **Âm thanh đơn kênh** — `winsound.SND_ASYNC` chỉ phát 1 âm thanh cùng lúc, âm thanh mới sẽ cắt âm thanh cũ.
+- **EAR bị ảnh hưởng bởi góc lớn** — khi đầu nghiêng > 45°, EAR không còn chính xác dù có Veto Rule.
+- **Âm thanh đơn kênh** — `winsound.SND_ASYNC` chỉ phát 1 âm thanh cùng lúc.
+- **Chưa có module phát hiện xao lãng** — hệ thống chỉ ghi nhận DISTRACTED nhưng chưa phạt risk khi nhìn sang bên quá lâu.
+- **Chưa có logging dữ liệu** — chưa ghi file log lịch sử risk để phân tích sau chuyến đi.
 
 ---
 
@@ -600,8 +609,9 @@ class DetectorConfig:
 
 1. **Soukupová, T. & Čech, J.** (2016). *Real-Time Eye Blink Detection using Facial Landmarks*. 21st Computer Vision Winter Workshop. — Công thức EAR gốc.
 2. **Lugaresi, C. et al.** (2019). *MediaPipe: A Framework for Building Perception Pipelines*. arXiv:1906.08172. — Framework MediaPipe.
-3. **Google AI.** *MediaPipe Face Mesh*. https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker — Tài liệu FaceMesh 468 landmarks.
+3. **Google AI.** *MediaPipe Face Mesh*. https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker — Tài liệu FaceMesh 478 landmarks.
 4. **OpenCV Documentation.** *solvePnP — Perspective-n-Point pose estimation*. https://docs.opencv.org/4.x/ — Ước lượng head pose.
 5. **Bradski, G.** (2000). *The OpenCV Library*. Dr. Dobb's Journal of Software Tools. — Thư viện OpenCV.
+6. **Dinges, D.F. & Grace, R.** (1998). *PERCLOS: A valid psychophysiological measure of alertness as assessed by psychomotor vigilance*. — Cơ sở lý thuyết PERCLOS.
 
 ---

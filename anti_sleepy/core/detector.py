@@ -6,7 +6,7 @@ import mediapipe as mp
 import numpy as np
 import collections
 
-from ..config import DetectorConfig
+from ..config import DetectorConfig, DriverState, AlertLevel
 
 Point = Tuple[int, int]
 BBox = Tuple[int, int, int, int]
@@ -53,7 +53,16 @@ class DrowsinessDetector:
         self._is_drowsy = False
         self._is_yawning = False
         self.base_pitch: Optional[float] = None
+        self.base_yaw: float = 0.0
         self._ear_history = collections.deque(maxlen=60)
+        
+        # New State Machine and Risk Handling
+        self.risk_score = 0.0
+        self.current_state = DriverState.NORMAL
+        self._perclos_buffer = collections.deque(maxlen=self.config.perclos_window_frames if hasattr(self.config, 'perclos_window_frames') else 90)
+        self.blink_duration = 0
+        self.nod_duration = 0
+
         self.last_metrics: Dict[str, Any] = {}
         self.clahe = cv2.createCLAHE(
             clipLimit=self.config.clahe_clip_limit,
@@ -72,17 +81,7 @@ class DrowsinessDetector:
             dtype=np.float64,
         )
         
-        self.using_personal_profile = False
         self.sunglasses_mode = False
-
-    def load_owner_profile(self, profile: dict) -> None:
-        if "ear_thresh" in profile:
-            self.config.ear_thresh = profile["ear_thresh"]
-        if "mar_thresh" in profile:
-            self.config.mar_thresh = profile["mar_thresh"]
-        if "pitch_base" in profile:
-            self.base_pitch = profile["pitch_base"]
-        self.using_personal_profile = True
 
     def preprocess_image(self, frame: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -206,11 +205,12 @@ class DrowsinessDetector:
                 cv2.circle(frame, center, radius, (255, 255, 0), 1)
                 cv2.circle(frame, center, 2, (0, 255, 255), -1)
 
-    def _evaluate_state(self, avg_ear: float, mar: float, pitch: float) -> Tuple[str, Tuple[int, int, int], bool, str]:
+    def _evaluate_state(self, avg_ear: float, mar: float, pitch: float, yaw: float) -> Tuple[str, Tuple[int, int, int], bool, str, int]:
         status_text = "TINH TAO (AWAKE)"
         alert_color = (0, 255, 0)
         is_alert = False
         alert_sound = ""
+        alert_level = AlertLevel.NONE.value
 
         # Auto-detect sunglasses
         if len(self._ear_history) == self._ear_history.maxlen:
@@ -221,52 +221,152 @@ class DrowsinessDetector:
                 self.sunglasses_mode = True
             elif ear_mean > 0.22:
                 self.sunglasses_mode = False
+                
+            # Self-calibrating dynamic EAR threshold (60% of relaxed open eyes)
+            if not self.sunglasses_mode:
+                if not hasattr(self, 'dynamic_ear_open'):
+                    self.dynamic_ear_open = ear_max
+                elif ear_max > self.dynamic_ear_open:
+                    self.dynamic_ear_open = ear_max # jump up immediately
+                else:
+                    self.dynamic_ear_open = self.dynamic_ear_open * 0.995 + ear_max * 0.005 # adapt slowly
+                self.config.ear_thresh = max(0.12, self.dynamic_ear_open * 0.60)
 
-        # 1. Check Drowsy (EAR) with hysteresis
-        if not self.sunglasses_mode:
-            if avg_ear < self.config.ear_thresh:
-                self.sleep_frame_counter += 1
-                self.sleep_recovery_counter = 0
-            else:
-                self.sleep_recovery_counter += 1
-                if self.sleep_recovery_counter >= self.config.ear_recovery_frames:
-                    self.sleep_frame_counter = 0
-                    self._is_drowsy = False
-            if self.sleep_frame_counter >= self.config.ear_consec_frames:
-                self._is_drowsy = True
-            if self._is_drowsy:
-                status_text = "NGU GAT! (DROWSY)"
-                alert_color = (0, 0, 255)
-                is_alert = True
-                alert_sound = "alert_drowsy.wav"
+        # Evidence tracking
+        eyes_closed = avg_ear < self.config.ear_thresh if not self.sunglasses_mode else False
+        yawning = mar > self.config.mar_thresh
+        
+        # PERCLOS tracking (Ignore squinting during yawning)
+        eyes_for_perclos = eyes_closed and not yawning
+        self._perclos_buffer.append(1 if eyes_for_perclos else 0)
+        perclos_ready = len(self._perclos_buffer) == (self.config.perclos_window_frames if hasattr(self.config, 'perclos_window_frames') else 90)
+        perclos = sum(self._perclos_buffer) / len(self._perclos_buffer) if perclos_ready else 0.0
+        
+        nodding = False
+        distracted = False
+        
+        self.debug_flags = f"E:{int(eyes_closed)} Y:{int(yawning)} Th:{self.config.ear_thresh:.2f}"
+        
+        if self.base_pitch is not None:
+            # Short-term pitch (moving avg of last few frames) vs long-term base_pitch
+            if not hasattr(self, 'short_pitch'):
+                self.short_pitch = pitch
+            self.short_pitch = self.short_pitch * 0.5 + pitch * 0.5
+            
+            pitch_delta = self.base_pitch - self.short_pitch
+            yaw_delta = abs(self.base_yaw - yaw if hasattr(self, 'base_yaw') else yaw)
+            
+            # Veto False Microsleeps on extreme head pitch up or yaw
+            if pitch_delta < -25.0 or yaw_delta > 30.0:
+                eyes_closed = False  # Overrule EAR, view is geometrically squashed
+                eyes_for_perclos = False # Also exclude from PERCLOS
 
-        # 2. Check Yawning (MAR) with hysteresis
-        if mar > self.config.mar_thresh:
+            # Smoothen Head Movement: Ignore pitch drop if looking far away (yaw > thresh)
+            if yaw_delta > self.config.yaw_distraction_thresh:
+                distracted = True
+            elif pitch_delta >= self.config.pitch_drop_thresh:
+                nodding = True
+                
+        self.debug_flags += f" N:{int(nodding)}"
+
+        # Temporal Eye Logic (Blink duration vs True closure)
+        # Suppress eye closure penalties if the driver is actively yawning (natural squint)
+        if eyes_closed and not yawning:
+            self.blink_duration += 1
+            if self.blink_duration == self.config.abnormal_blink_frames:
+                # Add penalty once per long blink
+                self.risk_score += self.config.risk_penalty_blink_long
+        else:
+            self.blink_duration = 0
+            
+        # Hard Rule fallback
+        if self.blink_duration >= self.config.ear_consec_frames:
+            self.risk_score = self.config.risk_max
+            
+        # Yawn logic with hysteresis
+        if yawning:
             self.yawn_frame_counter += 1
             self.yawn_recovery_counter = 0
+            if self.yawn_frame_counter == self.config.mar_consec_frames:
+                self.risk_score += self.config.risk_penalty_yawn
         else:
             self.yawn_recovery_counter += 1
             if self.yawn_recovery_counter >= self.config.mar_recovery_frames:
                 self.yawn_frame_counter = 0
-                self._is_yawning = False
-        if self.yawn_frame_counter >= self.config.mar_consec_frames:
-            self._is_yawning = True
-        if self._is_yawning:
-            status_text = "DANG NGAP (YAWNING)"
-            alert_color = (0, 165, 255)
-            is_alert = True
-            alert_sound = "alert_yawning.wav"
 
-        # 3. Check Head Droop (Pitch)
+        # Nodding Risk (Only penalize if eyes are closed/drowsy)
+        # Avoid penalizing sudden braking or looking down at dash with wide-open eyes.
+        perclos_ready = len(self._perclos_buffer) == (self.config.perclos_window_frames if hasattr(self.config, 'perclos_window_frames') else 90)
+        perclos = sum(self._perclos_buffer) / len(self._perclos_buffer) if perclos_ready else 0.0
+        
+        if nodding and (eyes_closed or perclos > 0.10):
+            self.nod_duration += 1
+            if self.nod_duration == 15: # Trigger penalty once after half-second
+                self.risk_score += self.config.risk_penalty_nodding
+        else:
+            self.nod_duration = 0
+            
+        # PERCLOS Risk (only penalize sustained drowsy closure, not normal blinks)
+        if perclos > self.config.perclos_thresh:
+            self.risk_score += self.config.risk_penalty_perclos
+            
+        # Continuous Posture Adaptation
         if self.base_pitch is not None:
-            pitch_delta = self.base_pitch - pitch
-            if pitch_delta >= self.config.pitch_drop_thresh:
-                status_text = "GAT GU (NODDING)"
-                alert_color = (255, 0, 0)
-                is_alert = True
-                alert_sound = "alert_nodding.wav"
+            # Continually adapt base posture so it never gets permanently stuck
+            self.base_pitch = self.base_pitch * 0.995 + pitch * 0.005
+            if hasattr(self, 'base_yaw'):
+                self.base_yaw = self.base_yaw * 0.995 + yaw * 0.005
+                
+        # Risk Decay — ALWAYS active so risk naturally drains back to zero
+        # Penalties outpace decay only when truly drowsy (sustained closure/yawning)
+        self.risk_score -= self.config.risk_decay_rate
+            
+        # Clamp Risk Score
+        self.risk_score = max(0.0, min(self.config.risk_max, self.risk_score))
+        
+        # State Machine Transitions
+        new_state = DriverState.NORMAL
+        
+        if self.risk_score >= self.config.risk_confirmed_thresh:
+            new_state = DriverState.DROWSINESS_CONFIRMED
+        elif self.risk_score >= self.config.risk_suspected_thresh:
+            new_state = DriverState.DROWSINESS_SUSPECTED
+        elif self.yawn_frame_counter >= self.config.mar_consec_frames * 0.8:
+            new_state = DriverState.YAWN_CANDIDATE
+        elif nodding:
+            new_state = DriverState.HEAD_DOWN_CANDIDATE
+        elif distracted:
+            new_state = DriverState.DISTRACTED
+            
+        self.current_state = new_state
+        
+        # Alert mapping
+        if new_state == DriverState.DROWSINESS_CONFIRMED:
+            status_text = "NGU GAT! (CONFIRMED)"
+            alert_color = (0, 0, 255) # Red
+            is_alert = True
+            alert_level = AlertLevel.HIGH_RISK.value
+            alert_sound = "alert_drowsy.wav"
+        elif new_state == DriverState.DROWSINESS_SUSPECTED:
+            status_text = "DANG BUON NGU (SUSPECTED)"
+            alert_color = (0, 165, 255) # Orange
+            is_alert = True
+            alert_level = AlertLevel.EARLY_WARNING.value
+            # Removed the annoying short beep ("sys_unknown_driver.wav") for suspected state
+        elif new_state == DriverState.YAWN_CANDIDATE:
+            status_text = "DANG NGAP (YAWNING)"
+            alert_color = (0, 255, 255) # Yellow
+            is_alert = True
+            alert_level = AlertLevel.EARLY_WARNING.value
+            alert_sound = "alert_yawning.wav"
+        elif new_state == DriverState.HEAD_DOWN_CANDIDATE:
+            status_text = "GAT GU (NODDING)"
+            alert_color = (255, 0, 0)
+        elif new_state == DriverState.DISTRACTED:
+            status_text = "XAO LANG (DISTRACTED)"
+            alert_color = (255, 255, 0) # Cyan
 
-        return status_text, alert_color, is_alert, alert_sound
+        return status_text, alert_color, is_alert, alert_sound, alert_level
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         h, w = frame.shape[:2]
@@ -312,7 +412,7 @@ class DrowsinessDetector:
                 pitch, yaw, roll = 0.0, 0.0, 0.0
 
             self._ear_history.append(avg_ear)
-            status_text, alert_color, is_alert, alert_sound = self._evaluate_state(avg_ear, mar, pitch)
+            status_text, alert_color, is_alert, alert_sound, alert_level = self._evaluate_state(avg_ear, mar, pitch, yaw)
 
             # Draw full face mesh contours
             self._draw_face_mesh(frame, landmarks, is_alert)
@@ -327,6 +427,7 @@ class DrowsinessDetector:
                 "landmarks": landmarks,
                 "bbox": (x_min, y_min, x_max, y_max),
                 "is_alert": is_alert,
+                "alert_level": alert_level,
                 "status": status_text,
                 "sound": alert_sound
             }
@@ -334,8 +435,11 @@ class DrowsinessDetector:
             # Minimal OSD on camera feed
             cv2.putText(frame, f"EAR:{avg_ear:.2f} MAR:{mar:.2f}", (10, 25),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-            cv2.putText(frame, f"STATUS: {status_text}", (10, h - 15),
+            cv2.putText(frame, f"STATUS: {status_text} | RISK: {self.risk_score:.0f}/100", (10, h - 35),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
+            if hasattr(self, 'debug_flags'):
+                cv2.putText(frame, f"DEBUG: {self.debug_flags}", (10, h - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
 
             if self.sunglasses_mode:
                 cv2.putText(frame, "SUNGLASSES", (w - 160, 25),

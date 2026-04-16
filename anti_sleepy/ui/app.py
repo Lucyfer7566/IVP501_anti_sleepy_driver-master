@@ -6,14 +6,8 @@ from PIL import Image, ImageTk
 import time
 
 from anti_sleepy.core.detector import DrowsinessDetector
-from anti_sleepy.core.profile import profile_exists, load_profile, save_profile, delete_profile
 from anti_sleepy.core.audio import AudioPlayer
 from anti_sleepy.ui.led_widget import LEDWidget, LEDState
-from anti_sleepy.ui.register_flow import RegisterFlow, RegPhase
-from anti_sleepy.core.face_id import (
-    extract_face_signature, compare_signatures, is_owner,
-    extract_face_crop, compute_face_histogram, save_face_descriptor
-)
 
 class AntiSleepyApp:
     def __init__(self, root: tk.Tk, cap: cv2.VideoCapture, detector: DrowsinessDetector):
@@ -26,33 +20,15 @@ class AntiSleepyApp:
         self._frame_count = 0
         self._reg_saved = False
         
-        # Identity tracking
-        self._identity_buffer = []
-        self._identity_stable = "CHUA RO"
         self._last_alert_status = ""
-        self._saved_hist = None  # numpy array for histogram comparison
+        
+        self.build_ui()
         
         self.build_ui()
         
         # Sub-modules
-        self.reg_flow = RegisterFlow(detector, self.led)
-        self.saved_profile = load_profile() if profile_exists() else None
         self.audio = AudioPlayer.get_instance()
-        self.last_identity = None
-        self.has_greeted = False
         
-        if self.saved_profile:
-            self.detector.load_owner_profile(self.saved_profile)
-            sig = self.saved_profile.get("face_signature", [])
-            hist_data = self.saved_profile.get("face_histogram", [])
-            if hist_data:
-                self._saved_hist = np.array(hist_data, dtype=np.float32)
-            self._log(f"Da tai profile ({len(sig)} sig, hist={'Co' if hist_data else 'Khong'})", "info")
-        else:
-            self.root.after(1000, lambda: self.audio.play("sys_no_profile.wav"))
-            self._log("Chua co profile. Vui long dang ky!", "warn")
-        
-        self._update_ui_labels()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         if not getattr(self.root, "mock_mode", False):
@@ -77,27 +53,11 @@ class AntiSleepyApp:
         self.led = LEDWidget(ctrl_frame, canvas_size=40)
         self.led.pack(side=tk.LEFT, padx=10)
         
-        # Register button
-        self.reg_btn = tk.Button(ctrl_frame, text="Dang ky", font=("Arial", 9, "bold"), width=10)
-        self.reg_btn.pack(side=tk.LEFT, padx=5)
-        self.reg_btn.bind("<ButtonPress-1>", self.on_btn_press)
-        self.reg_btn.bind("<ButtonRelease-1>", self.on_btn_release)
-        
-        # Status labels (horizontal)
-        self.lbl_owner_status = tk.Label(ctrl_frame, text="Owner: --", font=("Arial", 10, "bold"))
-        self.lbl_owner_status.pack(side=tk.LEFT, padx=15)
-        
-        self.lbl_identity = tk.Label(ctrl_frame, text="Nhan dang: --", font=("Arial", 10, "bold"))
-        self.lbl_identity.pack(side=tk.LEFT, padx=15)
-        
         self.lbl_mode = tk.Label(ctrl_frame, text="Mode: BINH THUONG", font=("Arial", 10, "bold"))
         self.lbl_mode.pack(side=tk.LEFT, padx=15)
         
         self.lbl_metrics = tk.Label(ctrl_frame, text="EAR: -- | MAR: -- | PITCH: --", font=("Consolas", 9))
         self.lbl_metrics.pack(side=tk.LEFT, padx=15)
-        
-        self.lbl_similarity = tk.Label(ctrl_frame, text="Sim: --", font=("Consolas", 9))
-        self.lbl_similarity.pack(side=tk.LEFT, padx=10)
         
         # ===== BOTTOM: Log panel (horizontal, short) =====
         log_frame = tk.LabelFrame(self.root, text=" Nhat ky su kien ", font=("Arial", 9, "bold"))
@@ -130,47 +90,10 @@ class AntiSleepyApp:
         except tk.TclError:
             pass
 
-    def _update_ui_labels(self):
-        if self.saved_profile:
-            self.lbl_owner_status.config(text="Owner: DA DANG KY", fg="green")
-        else:
-            self.lbl_owner_status.config(text="Owner: CHUA DANG KY", fg="red")
-
-    def on_btn_press(self, event):
-        self._btn_press_time = time.time()
-        self._btn_after_id = self.root.after(2000, self.on_btn_long_press)
-
-    def on_btn_release(self, event):
-        if self._btn_after_id is not None:
-            self.root.after_cancel(self._btn_after_id)
-            self._btn_after_id = None
-            duration = time.time() - self._btn_press_time
-            if duration < 2.0:
-                if self.saved_profile is None:
-                    self.start_registration()
-                else:
-                    if messagebox.askyesno("Dang ky lai", "Xoa dang ky va dang ky lai?"):
-                        delete_profile()
-                        self.saved_profile = None
-                        self._saved_hist = None
-                        self.detector.using_personal_profile = False
-                        self._identity_buffer.clear()
-                        self._identity_stable = "CHUA RO"
-                        self.has_greeted = False
-                        self.last_identity = None
-                        self._update_ui_labels()
-                        self._log("Da xoa profile.", "warn")
-                        self.start_registration()
-
-    def on_btn_long_press(self):
-        self._btn_after_id = None
-        self.start_registration()
-
-    def start_registration(self):
-        if self.reg_flow.phase == RegPhase.IDLE:
-            self._reg_saved = False
-            self.reg_flow.start()
-            self._log("Bat dau dang ky khuon mat...", "info")
+    def on_closing(self):
+        self.detector.stop()
+        self.cap.release()
+        self.root.destroy()
 
     def _update(self):
         success, frame = self.cap.read()
@@ -192,120 +115,36 @@ class AntiSleepyApp:
         landmarks = m.get("landmarks", [])
         bbox = m.get("bbox", None)
         is_alert = m.get("is_alert", False)
+        # Draw UI (Delegated to detector.py OSD)
         
-        in_registration = self.reg_flow.phase != RegPhase.IDLE
-        
-        if in_registration:
-            # Extract histogram from current frame for registration
-            face_hist = None
-            if bbox and self.reg_flow.phase == RegPhase.FACE_SIG:
-                crop = extract_face_crop(frame, bbox)
-                if crop is not None:
-                    face_hist = compute_face_histogram(crop)
+        if is_alert:
+            alert_sound = m.get("sound", "")
+            if alert_sound:
+                self.audio.play(alert_sound, cooldown=5.0)
+            current_status = m.get("status", "")
             
-            reg_text = self.reg_flow.feed_frame(landmarks, ear, mar, pitch, face_hist)
-            cv2.putText(processed_frame, reg_text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
-            
-            if self.reg_flow.is_complete() and not self._reg_saved:
-                self._reg_saved = True
-                self.saved_profile = self.reg_flow.get_profile()
-                save_profile(self.saved_profile)
-                self.detector.load_owner_profile(self.saved_profile)
-                
-                hist_data = self.saved_profile.get("face_histogram", [])
-                if hist_data:
-                    self._saved_hist = np.array(hist_data, dtype=np.float32)
-                
-                self._identity_buffer.clear()
-                self._identity_stable = "CHUA RO"
-                self.has_greeted = False
-                self.last_identity = None
-                self._update_ui_labels()
-                
-                self._log("Dang ky thanh cong!", "success")
-                self._log(f"  EAR thresh: {self.saved_profile['ear_thresh']}", "info")
-                
-                self.root.after(2000, self.reg_flow.cancel)
-        else:
-            # --- Face identity check ---
-            combined_score = 0.0
-            if landmarks and self.saved_profile and self.saved_profile.get("face_signature"):
-                current_sig = extract_face_signature(landmarks)
-                saved_sig = self.saved_profile["face_signature"]
-                
-                # Get current face histogram
-                current_hist = None
-                if bbox:
-                    crop = extract_face_crop(frame, bbox)
-                    if crop is not None:
-                        current_hist = compute_face_histogram(crop)
-                
-                if current_sig:
-                    owner_match, combined_score = is_owner(
-                        current_sig, saved_sig,
-                        current_hist=current_hist,
-                        saved_hist=self._saved_hist,
-                        yaw=yaw
-                    )
-                    
-                    self._identity_buffer.append(owner_match)
-                    if len(self._identity_buffer) > 25:
-                        self._identity_buffer.pop(0)
-                    
-                    if len(self._identity_buffer) >= 12:
-                        owner_votes = sum(self._identity_buffer)
-                        total = len(self._identity_buffer)
-                        if owner_votes > total * 0.55:
-                            self._identity_stable = "CHU XE"
-                        elif owner_votes < total * 0.3:
-                            self._identity_stable = "LA"
-                else:
-                    self._identity_buffer.clear()
-                    self._identity_stable = "CHUA RO"
-            elif not landmarks:
-                self._identity_buffer.clear()
-                self._identity_stable = "CHUA RO"
-            
-            self.lbl_similarity.config(text=f"Sim: {combined_score:.3f}")
-            
-            if is_alert:
+            # Use AlertLevel from detector to map to LED State
+            alert_level = m.get("alert_level", 0)
+            if alert_level == 2:
                 self.led.set_state(LEDState.ALERT)
-                alert_sound = m.get("sound", "")
-                if alert_sound:
-                    self.audio.play(alert_sound, cooldown=5.0)
-                current_status = m.get("status", "")
-                if current_status != self._last_alert_status:
-                    self._last_alert_status = current_status
-                    self._log(f"CANH BAO: {current_status}", "alert")
+            elif alert_level == 1:
+                self.led.set_state(LEDState.RUNNING_UNKNOWN) # Orange/Warning mapping
             else:
-                if self._last_alert_status:
-                    self._log("Binh thuong tro lai", "success")
-                    self._last_alert_status = ""
+                self.led.set_state(LEDState.ALERT)
                 
-                if not landmarks:
-                    self.led.set_state(LEDState.OFF)
-                    self.lbl_identity.config(text="Nhan dang: --", fg="black")
-                else:
-                    if self._identity_stable == "CHU XE":
-                        self.led.set_state(LEDState.RUNNING_OK)
-                        self.lbl_identity.config(text="Nhan dang: CHU XE", fg="green")
-                        if not self.has_greeted or self.last_identity != "CHU XE":
-                            self.audio.play("sys_welcome_owner.wav")
-                            self._log("Nhan dang: CHU XE", "success")
-                            self.has_greeted = True
-                            self.last_identity = "CHU XE"
-                    elif self._identity_stable == "LA":
-                        self.led.set_state(LEDState.RUNNING_UNKNOWN)
-                        self.lbl_identity.config(text="Nhan dang: NGUOI LA", fg="red")
-                        if not self.has_greeted or self.last_identity != "LA":
-                            self.audio.play("sys_unknown_driver.wav")
-                            self._log("Nhan dang: NGUOI LA", "warn")
-                            self.has_greeted = True
-                            self.last_identity = "LA"
-                    else:
-                        self.led.set_state(LEDState.OFF)
-                        self.lbl_identity.config(text="Nhan dang: ...", fg="gray")
-                        
+            if current_status != self._last_alert_status:
+                self._last_alert_status = current_status
+                self._log(f"CANH BAO: {current_status}", "alert")
+        else:
+            if self._last_alert_status:
+                self._log("Binh thuong tro lai", "success")
+                self._last_alert_status = ""
+            
+            if not landmarks:
+                self.led.set_state(LEDState.OFF)
+            else:
+                self.led.set_state(LEDState.RUNNING_OK) # Driver present and normal
+                    
         mode_text = "KINH RAM" if self.detector.sunglasses_mode else "BINH THUONG"
         self.lbl_mode.config(text=f"Mode: {mode_text}")
         self.lbl_metrics.config(text=f"EAR:{ear:.2f} | MAR:{mar:.2f} | P:{pitch:.0f}")
