@@ -3,26 +3,12 @@ from enum import Enum, auto
 
 class LEDState(Enum):
     OFF = auto()
-    REGISTERING = auto()
-    EAR_OPEN = auto()
-    EAR_CLOSED = auto()
-    PITCH_CAL = auto()
-    SUCCESS = auto()
     RUNNING_OK = auto()
     RUNNING_UNKNOWN = auto()
     ALERT = auto()
 
 STATE_CONFIG = {
-    # Expected: (base_color, glow_color, animation_type, frame_delay_ms)
-    # 2Hz blink = 500ms cycle = 250ms toggle
-    # 5Hz blink = 200ms cycle = 100ms toggle
-    # 1Hz pulse = 1000ms cycle = 500ms toggle
     LEDState.OFF:             ("gray", "", "solid", 0),
-    LEDState.REGISTERING:     ("yellow", "lightyellow", "blink", 250),
-    LEDState.EAR_OPEN:        ("lightblue", "cyan", "blink", 250),
-    LEDState.EAR_CLOSED:      ("orange", "gold", "blink", 250),
-    LEDState.PITCH_CAL:       ("purple", "magenta", "blink", 250),
-    LEDState.SUCCESS:         ("green", "lightgreen", "solid", 0),
     LEDState.RUNNING_OK:      ("green", "lightgreen", "pulse", 500),
     LEDState.RUNNING_UNKNOWN: ("yellow", "lightyellow", "pulse", 500),
     LEDState.ALERT:           ("red", "#ff6666", "blink", 100)

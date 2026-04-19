@@ -412,6 +412,12 @@ class DrowsinessDetector:
                 pitch, yaw, roll = 0.0, 0.0, 0.0
 
             self._ear_history.append(avg_ear)
+            
+            # Auto-calibrate head pose after calibration window fills
+            if self.base_pitch is None and len(self._ear_history) == self._ear_history.maxlen:
+                self.base_pitch = pitch
+                self.base_yaw = yaw
+                
             status_text, alert_color, is_alert, alert_sound, alert_level = self._evaluate_state(avg_ear, mar, pitch, yaw)
 
             # Draw full face mesh contours

@@ -53,7 +53,7 @@ def average_signatures(sigs: List[List[float]]) -> List[float]:
     return [x / n for x in avg]
 
 def compare_signatures(sig1: List[float], sig2: List[float]) -> float:
-    """L2-based similarity between two face signatures."""
+    """Inverse L2 similarity: 1 / (1 + L2_distance). Returns 0..1 (1 = identical)."""
     if not sig1 or not sig2 or len(sig1) != len(sig2):
         return 0.0
     sq_sum = sum((a - b) ** 2 for a, b in zip(sig1, sig2))

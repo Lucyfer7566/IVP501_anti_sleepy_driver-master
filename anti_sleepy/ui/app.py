@@ -24,8 +24,6 @@ class AntiSleepyApp:
         
         self.build_ui()
         
-        self.build_ui()
-        
         # Sub-modules
         self.audio = AudioPlayer.get_instance()
         
@@ -90,10 +88,7 @@ class AntiSleepyApp:
         except tk.TclError:
             pass
 
-    def on_closing(self):
-        self.detector.stop()
-        self.cap.release()
-        self.root.destroy()
+
 
     def _update(self):
         success, frame = self.cap.read()

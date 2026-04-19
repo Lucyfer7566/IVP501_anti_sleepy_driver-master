@@ -37,23 +37,28 @@ def test_average_signatures():
 def test_compare_signatures():
     sig1 = [1.0, 0.0]
     sig2 = [1.0, 0.0]
-    # identical vectors -> cosine similarity 1.0
+    # identical vectors -> Inverse L2 similarity 1.0
     assert math.isclose(compare_signatures(sig1, sig2), 1.0, rel_tol=1e-5)
     
     sig3 = [0.0, 1.0]
-    # orthogonal vectors -> dot prod 0 -> cosine sim 0.0
-    assert math.isclose(compare_signatures(sig1, sig3), 0.0, rel_tol=1e-5)
+    # orthogonal vectors -> L2 dist = sqrt(2) -> similarity = 1/(1+sqrt(2)) ≈ 0.414
+    sim = compare_signatures(sig1, sig3)
+    expected = 1.0 / (1.0 + math.sqrt(2))
+    assert math.isclose(sim, expected, rel_tol=1e-5)
     
     # Error cases
     assert compare_signatures([], []) == 0.0
-    assert compare_signatures([0.0, 0.0], [0.0, 0.0]) == 0.0
+    assert compare_signatures([0.0, 0.0], [0.0, 0.0]) == 1.0  # dist=0 -> 1/(1+0) = 1.0
     assert compare_signatures([1.0], [1.0, 2.0]) == 0.0
 
 def test_is_owner():
-    # If cos_sim = 1.0, it should be >= 0.92
-    assert is_owner([1.0, 0.0], [1.0, 0.0], threshold=0.92) is True
-    # If cos_sim = 0.0, it should be < 0.92
-    assert is_owner([1.0, 0.0], [0.0, 1.0], threshold=0.92) is False
+    # Identical vectors -> high similarity -> is_owner True
+    result, score = is_owner([1.0, 0.0], [1.0, 0.0], sig_threshold=0.92)
+    assert result is True
+    assert score >= 0.92
+    # Orthogonal vectors -> low similarity -> is_owner False
+    result2, score2 = is_owner([1.0, 0.0], [0.0, 1.0], sig_threshold=0.92)
+    assert result2 is False
 
 if __name__ == "__main__":
     test_extract_face_signature()
